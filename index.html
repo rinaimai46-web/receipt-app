@@ -19,19 +19,22 @@
   .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
   .tab { padding: 8px 16px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; cursor: pointer; background: #fff; color: #666; }
   .tab.active { background: #1a1a1a; color: #fff; border-color: transparent; }
-  .drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; background: #fff; }
+  .drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 32px; text-align: center; background: #fff; }
   .drop-zone:hover, .drop-zone.dragging { border-color: #888; background: #fafafa; }
   .drop-zone input { display: none; }
   .drop-icon { font-size: 36px; margin-bottom: 10px; }
   .drop-zone p { font-size: 14px; color: #666; line-height: 1.6; }
   .drop-zone small { font-size: 12px; color: #aaa; }
-  .preview-img { max-width: 100%; max-height: 260px; border-radius: 8px; border: 1px solid #eee; display: block; margin: 0 auto 12px; }
+  .upload-btn { display: inline-block; margin-top: 12px; padding: 10px 24px; background: #1a1a1a; color: #fff; border-radius: 8px; font-size: 14px; cursor: pointer; border: none; }
+  .upload-btn:hover { background: #333; }
+  .preview-img { max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid #eee; display: block; margin: 0 auto 12px; }
   .status { font-size: 13px; color: #666; margin: 10px 0; min-height: 22px; display: flex; align-items: center; gap: 8px; }
   .spinner { width: 14px; height: 14px; border: 2px solid #ddd; border-top-color: #666; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .progress-bar-wrap { background: #eee; border-radius: 4px; height: 6px; margin: 8px 0; overflow: hidden; }
+  .progress-wrap { background: #eee; border-radius: 4px; height: 6px; margin: 6px 0 10px; overflow: hidden; display: none; }
   .progress-bar { background: #1a1a1a; height: 6px; border-radius: 4px; transition: width 0.3s; }
   .error-box { background: #fff2f2; border: 1px solid #fcc; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #c00; margin-top: 8px; line-height: 1.6; }
+  .done-box { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #2e7d32; margin-top: 8px; }
   .result-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px 20px; margin-top: 16px; }
   .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .result-header span { font-size: 15px; font-weight: 500; }
@@ -54,7 +57,6 @@
   .empty { text-align: center; padding: 40px; color: #bbb; font-size: 14px; }
   .export-row { display: flex; justify-content: flex-end; margin-top: 12px; }
   .date-hint { font-size: 11px; color: #aaa; margin-top: 3px; }
-  .bulk-done { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #2e7d32; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -75,28 +77,23 @@
     <button class="tab" onclick="switchTab('list')">リスト（<span id="count">0</span>件）</button>
   </div>
   <div id="tab-scan">
-    <!-- 複数ファイル対応：multipleを追加 -->
-    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondragover="onDrag(event,true)" ondragleave="onDrag(event,false)" ondrop="onDrop(event)">
-      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/gif,image/webp,.pdf" multiple onchange="onFiles(this.files)">
+    <div class="drop-zone" id="dropZone" ondragover="onDrag(event,true)" ondragleave="onDrag(event,false)" ondrop="onDrop(event)">
+      <!-- ★ multiple を必ずここに書く。onclickは使わない -->
+      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" multiple onchange="onFiles(this.files)">
       <div id="dropContent">
         <div class="drop-icon">🧾</div>
-        <p>クリックまたはドラッグ&ドロップ</p>
-        <small>JPG・PNG・PDF対応　／　複数枚まとめてOK</small>
+        <p>複数枚まとめてアップロードできます</p>
+        <small>JPG・PNG・PDF対応</small><br>
+        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">ファイルを選択</button>
       </div>
       <img id="preview" class="preview-img" style="display:none">
     </div>
 
-    <!-- 一括処理の進捗表示 -->
-    <div id="bulkProgress" style="display:none; margin-top:12px;">
-      <div class="status" id="statusBar"></div>
-      <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
-    </div>
-    <div class="status" id="statusBarSingle"></div>
-
+    <div class="status" id="statusBar"></div>
+    <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
     <div class="error-box" id="errorBox" style="display:none"></div>
-    <div class="bulk-done" id="bulkDone" style="display:none"></div>
+    <div class="done-box" id="doneBox" style="display:none"></div>
 
-    <!-- 1枚モード：読み取り結果を確認・修正してリストに追加 -->
     <div id="resultSection" style="display:none">
       <div class="result-card">
         <div class="result-header">
@@ -147,43 +144,39 @@
     </div>
   </div>
 </div>
+
 <script>
 let records = [];
-let receiptDate = '';
-let receiptItems = '';
 
 function switchTab(tab) {
   document.getElementById('tab-scan').style.display = tab === 'scan' ? '' : 'none';
   document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
-  document.querySelectorAll('.tab').forEach((el, i) => el.classList.toggle('active', (i===0&&tab==='scan')||(i===1&&tab==='list')));
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', (i===0&&tab==='scan')||(i===1&&tab==='list')));
   if (tab === 'list') renderList();
 }
 function onDrag(e, over) { e.preventDefault(); document.getElementById('dropZone').classList.toggle('dragging', over); }
 function onDrop(e) {
   e.preventDefault();
   document.getElementById('dropZone').classList.remove('dragging');
-  const files = e.dataTransfer.files;
-  if (files && files.length > 0) onFiles(files);
+  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) onFiles(e.dataTransfer.files);
 }
 
-// ファイル選択のエントリポイント（複数対応）
+// ★ エントリポイント：1枚でも複数でもここから
 async function onFiles(files) {
   if (!files || files.length === 0) return;
   document.getElementById('errorBox').style.display = 'none';
-  document.getElementById('bulkDone').style.display = 'none';
+  document.getElementById('doneBox').style.display = 'none';
   document.getElementById('resultSection').style.display = 'none';
 
   if (files.length === 1) {
-    // 1枚：従来通り確認画面を表示
-    await onFileSingle(files[0]);
+    await runSingle(files[0]);
   } else {
-    // 複数：一括自動処理
-    await onFilesBulk(files);
+    await runBulk(files);
   }
 }
 
-// 1枚モード
-async function onFileSingle(file) {
+// 1枚モード：結果確認画面を表示
+async function runSingle(file) {
   const preview = document.getElementById('preview');
   const dropContent = document.getElementById('dropContent');
   if (file.type.startsWith('image/')) {
@@ -194,110 +187,73 @@ async function onFileSingle(file) {
     preview.style.display = 'none';
     dropContent.innerHTML = '<div class="drop-icon">📄</div><p>' + file.name + '</p>';
   }
-  document.getElementById('bulkProgress').style.display = 'none';
-  await analyzeReceipt(file, false);
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('statusBar').innerHTML = '<div class="spinner"></div>解析中...';
+  try {
+    const result = await callApi(file);
+    fillForm(result);
+    document.getElementById('statusBar').innerHTML = '';
+    document.getElementById('resultSection').style.display = '';
+  } catch(e) {
+    document.getElementById('statusBar').innerHTML = '';
+    showError(e.message);
+  }
 }
 
-// 複数枚一括モード：確認なしで自動リスト追加
-async function onFilesBulk(files) {
+// 複数枚モード：自動でリストに追加
+async function runBulk(files) {
   const apiKey = document.getElementById('apiKey').value.trim();
   if (!apiKey) { showError('APIキーを入力してください。'); return; }
 
-  const total = files.length;
-  let successCount = 0;
-  let errorCount = 0;
-  const errors = [];
-
-  // プレビュー非表示、進捗バー表示
   document.getElementById('preview').style.display = 'none';
-  document.getElementById('dropContent').innerHTML = '<div class="drop-icon">🧾</div><p>クリックまたはドラッグ&ドロップ</p><small>JPG・PNG・PDF対応　／　複数枚まとめてOK</small>';
   document.getElementById('dropContent').style.display = '';
-  document.getElementById('bulkProgress').style.display = '';
+  document.getElementById('progressWrap').style.display = '';
+
+  const total = files.length;
+  let ok = 0, ng = 0, errs = [];
 
   for (let i = 0; i < total; i++) {
     const file = files[i];
     document.getElementById('statusBar').innerHTML =
-      '<div class="spinner"></div>' + total + '枚中 ' + (i + 1) + '枚目を処理中：' + file.name;
-    document.getElementById('progressBar').style.width = (i / total * 100) + '%';
-
+      '<div class="spinner"></div>' + total + '枚中 ' + (i+1) + '枚目：' + file.name;
+    document.getElementById('progressBar').style.width = Math.round(i / total * 100) + '%';
     try {
-      const result = await analyzeReceiptRaw(file);
-      if (result) {
-        // 自動でリストに追加
-        records.push({
-          id: Date.now() + i,
-          date: result.date,
-          store: result.store,
-          kamoku: result.kamoku,
-          amount: result.amount,
-          biko: result.biko
-        });
-        document.getElementById('count').textContent = records.length;
-        successCount++;
-      }
+      const result = await callApi(file);
+      records.push({ id: Date.now() + i, date: result.date, store: result.store, kamoku: result.kamoku, amount: result.amount, biko: result.biko });
+      document.getElementById('count').textContent = records.length;
+      ok++;
     } catch(e) {
-      errorCount++;
-      errors.push(file.name + '：' + e.message);
+      ng++;
+      errs.push(file.name + '：' + e.message);
     }
-
-    // API制限対策：連続リクエストに少し間隔をあける
-    if (i < total - 1) await sleep(500);
+    if (i < total - 1) await new Promise(r => setTimeout(r, 500));
   }
 
   document.getElementById('progressBar').style.width = '100%';
   document.getElementById('statusBar').innerHTML = '';
-  document.getElementById('bulkProgress').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'none';
   document.getElementById('fileInput').value = '';
 
-  // 完了メッセージ
-  let msg = '✅ ' + successCount + '枚の読み取りが完了しました。';
-  if (errorCount > 0) msg += '　⚠️ ' + errorCount + '枚でエラー：' + errors.join(' / ');
-  const doneEl = document.getElementById('bulkDone');
-  doneEl.textContent = msg;
-  doneEl.style.display = '';
+  let msg = '✅ ' + ok + '枚の読み取りが完了しました！';
+  if (ng > 0) msg += '　⚠️ ' + ng + '枚でエラー：' + errs.join(' / ');
+  document.getElementById('doneBox').textContent = msg;
+  document.getElementById('doneBox').style.display = '';
 
-  // リストタブへ移動
-  setTimeout(() => switchTab('list'), 800);
+  setTimeout(() => switchTab('list'), 1000);
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+// ★ API呼び出し共通関数
+async function callApi(file) {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) throw new Error('APIキーを入力してください。');
 
-function guessKamoku(items, amount) {
-  const t = (items || '').toLowerCase();
-  const amt = parseInt((amount || '0').replace(/[^\d]/g, '')) || 0;
-  if (/ガソリン|交通|電車|バス|タクシー|新幹線|飛行機|suica|pasmo|ic/.test(t)) return '旅費交通費';
-  if (/備品等|備品|文房具|消耗|印刷|コピー|usb|ケーブル|電池|ボールペン|ノート|用紙|トナー/.test(t)) return '消耗品費';
-  if (/飲食|食事|ランチ|ディナー|カフェ|コーヒー|居酒屋|レストラン|食堂|弁当|接待|懇親|飲み会/.test(t)) { return amt <= 1000 ? '会議費' : '交際費'; }
-  return amt > 0 && amt <= 1000 ? '会議費' : '交際費';
-}
-const HINTS = { '交際費': '飲食代（1,001円以上）として自動判定', '会議費': '飲食代（1,000円以下）として自動判定', '消耗品費': '備品・消耗品として自動判定', '旅費交通費': '交通機関・ガソリン代として自動判定' };
+  const base64 = await fileToBase64(file);
+  const isPdf = file.type === 'application/pdf';
+  const contentBlock = isPdf
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+    : { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } };
 
-function normalizeDate(str) {
-  if (!str) return '';
-  str = str.trim();
-  if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(str)) {
-    const [y, m, d] = str.split('/').map(Number);
-    return y + '/' + String(m).padStart(2,'0') + '/' + String(d).padStart(2,'0');
-  }
-  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(str)) {
-    const [y, m, d] = str.split('-').map(Number);
-    return y + '/' + String(m).padStart(2,'0') + '/' + String(d).padStart(2,'0');
-  }
-  if (/^\d{2}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(str)) {
-    const parts = str.split(/[\/\-]/).map(Number);
-    return (2000 + parts[0]) + '/' + String(parts[1]).padStart(2,'0') + '/' + String(parts[2]).padStart(2,'0');
-  }
-  if (/^\d{1,2}\/\d{1,2}$/.test(str)) {
-    const [m, d] = str.split('/').map(Number);
-    return '2026/' + String(m).padStart(2,'0') + '/' + String(d).padStart(2,'0');
-  }
-  return str;
-}
-function getMonthEnd(year, month) { return new Date(year, month, 0).getDate(); }
-function toDisplayDate(str) { return str ? str.replace(/-/g, '/') : ''; }
-
-function buildSystemPrompt() {
-  return `あなたは領収書から情報を抽出する専門家です。
+  const systemPrompt = `あなたは領収書から情報を抽出する専門家です。
 必ず以下のJSONのみを返答してください（説明・コードブロック・前置き一切不要）:
 {"date":"YYYY/MM/DD","store":"店名または会社名","amount":"税込合計を数字のみ","items":"品目の要約","confidence":"high|medium|low"}
 
@@ -318,23 +274,13 @@ function buildSystemPrompt() {
 - 食品・食料品・食材・飲料・お菓子・弁当 → "食材費等"
 - 文房具・筆記用具・コピー用紙・備品・消耗品・電池・USB → "備品等"
 - 飲食店・カフェ・居酒屋などでの飲食代 → "飲食代"
-- 交通費・ガソリン → 具体的な内容
+- 交通費・ガソリン → 具体的な内容（例: 電車代、ガソリン代）
 - その他 → 具体的な内容を簡潔に
 
 【confidenceの判定】
 - high: 日付・金額ともに明確
 - medium: どちらか一方が不明瞭
-- low: 両方不明瞭、または推定が多い`;
-}
-
-// APIを叩いてパース済みデータを返す共通関数
-async function analyzeReceiptRaw(file) {
-  const apiKey = document.getElementById('apiKey').value.trim();
-  const base64 = await fileToBase64(file);
-  const isPdf = file.type === 'application/pdf';
-  const contentBlock = isPdf
-    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
-    : { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } };
+- low: 両方不明瞭または推定が多い`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -347,8 +293,8 @@ async function analyzeReceiptRaw(file) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
-      system: buildSystemPrompt(),
-      messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: '領収書の情報を抽出してください。日付は特に注意深く読み取り、2026年を基準年として処理してください。' }] }]
+      system: systemPrompt,
+      messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: '領収書の情報を抽出してください。日付は2026年を基準年として処理してください。' }] }]
     })
   });
   if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || 'HTTPエラー: ' + res.status); }
@@ -357,60 +303,63 @@ async function analyzeReceiptRaw(file) {
   let parsed;
   try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { throw new Error('AIの応答を解析できませんでした。'); }
 
-  let finalDate = normalizeDate(parsed.date || '');
-  if (finalDate) {
-    const y = parseInt(finalDate.split('/')[0]);
-    if (y < 2020 || y > 2030) finalDate = '2026/' + finalDate.split('/')[1] + '/' + finalDate.split('/')[2];
-  }
+  // 日付の正規化
+  let d = normalizeDate(parsed.date || '');
+  if (d) { const y = parseInt(d.split('/')[0]); if (y < 2020 || y > 2030) d = '2026/' + d.split('/')[1] + '/' + d.split('/')[2]; }
 
-  const kamoku = guessKamoku(parsed.items, parsed.amount);
-
-  // 発生日（月末日）
-  let dateValue = '';
-  if (finalDate && /^\d{4}\/\d{2}\/\d{2}$/.test(finalDate)) {
-    const [y, m] = finalDate.split('/').map(Number);
-    const lastDay = getMonthEnd(y, m);
-    dateValue = y + '/' + String(m).padStart(2,'0') + '/' + String(lastDay).padStart(2,'0');
+  // 発生日（月末）
+  let dateForC = '';
+  if (d && /^\d{4}\/\d{2}\/\d{2}$/.test(d)) {
+    const [y, m] = d.split('/').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    dateForC = y + '/' + String(m).padStart(2,'0') + '/' + String(last).padStart(2,'0');
   } else {
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth() + 1;
-    dateValue = y + '/' + String(m).padStart(2,'0') + '/' + String(getMonthEnd(y, m)).padStart(2,'0');
+    dateForC = y + '/' + String(m).padStart(2,'0') + '/' + String(new Date(y, m, 0).getDate()).padStart(2,'0');
   }
 
   return {
-    date: dateValue,
+    date: dateForC,
     store: parsed.store || '',
-    kamoku,
+    kamoku: guessKamoku(parsed.items, parsed.amount),
     amount: parsed.amount || '',
-    biko: (finalDate + ' ' + (parsed.items || '')).trim(),
+    biko: (d + ' ' + (parsed.items || '')).trim(),
     confidence: parsed.confidence || 'medium'
   };
 }
 
-// 1枚モード：結果を画面に表示
-async function analyzeReceipt(file, isBulk) {
-  const statusBar = document.getElementById('statusBarSingle');
-  statusBar.innerHTML = '<div class="spinner"></div>Claude AIが領収書を解析中...';
-  document.getElementById('resultSection').style.display = 'none';
-  document.getElementById('errorBox').style.display = 'none';
-  try {
-    const result = await analyzeReceiptRaw(file);
-    receiptDate = result.biko.split(' ')[0] || '';
-    receiptItems = result.biko.split(' ').slice(1).join(' ') || '';
+function normalizeDate(str) {
+  if (!str) return '';
+  str = str.trim();
+  if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(str)) { const [y,m,d]=str.split('/').map(Number); return y+'/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'); }
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(str)) { const [y,m,d]=str.split('-').map(Number); return y+'/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'); }
+  if (/^\d{2}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(str)) { const p=str.split(/[\/\-]/).map(Number); return (2000+p[0])+'/'+String(p[1]).padStart(2,'0')+'/'+String(p[2]).padStart(2,'0'); }
+  if (/^\d{1,2}\/\d{1,2}$/.test(str)) { const [m,d]=str.split('/').map(Number); return '2026/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'); }
+  return str;
+}
 
-    // 月末日をinput[type=date]形式で
-    document.getElementById('f-date').value = result.date.replace(/\//g, '-');
-    document.getElementById('f-store').value = result.store;
-    document.getElementById('f-amount').value = result.amount;
-    document.getElementById('f-biko').value = result.biko;
-    document.getElementById('f-kamoku').value = result.kamoku;
-    document.getElementById('kamokuHint').textContent = HINTS[result.kamoku];
-    const tag = document.getElementById('confidenceTag');
-    tag.textContent = result.confidence === 'low' ? '要確認' : '読み取り完了';
-    tag.className = result.confidence === 'low' ? 'badge warn' : 'badge';
-    statusBar.innerHTML = '';
-    document.getElementById('resultSection').style.display = '';
-  } catch(e) { statusBar.innerHTML = ''; showError(e.message); }
+function guessKamoku(items, amount) {
+  const t = (items||'').toLowerCase();
+  const amt = parseInt((amount||'0').replace(/[^\d]/g,''))||0;
+  if (/ガソリン|交通|電車|バス|タクシー|新幹線|飛行機|suica|pasmo|ic/.test(t)) return '旅費交通費';
+  if (/備品等|備品|文房具|消耗|印刷|コピー|usb|ケーブル|電池|ボールペン|ノート|用紙|トナー/.test(t)) return '消耗品費';
+  if (/飲食|食事|ランチ|ディナー|カフェ|コーヒー|居酒屋|レストラン|食堂|弁当|接待|懇親|飲み会/.test(t)) return amt<=1000?'会議費':'交際費';
+  return amt>0&&amt<=1000?'会議費':'交際費';
+}
+
+const HINTS = { '交際費':'飲食代（1,001円以上）として自動判定','会議費':'飲食代（1,000円以下）として自動判定','消耗品費':'備品・消耗品として自動判定','旅費交通費':'交通機関・ガソリン代として自動判定' };
+
+function fillForm(result) {
+  document.getElementById('f-date').value = result.date.replace(/\//g, '-');
+  document.getElementById('f-store').value = result.store;
+  document.getElementById('f-amount').value = result.amount;
+  document.getElementById('f-biko').value = result.biko;
+  document.getElementById('f-kamoku').value = result.kamoku;
+  document.getElementById('kamokuHint').textContent = HINTS[result.kamoku] || '';
+  const tag = document.getElementById('confidenceTag');
+  tag.textContent = result.confidence === 'low' ? '要確認' : '読み取り完了';
+  tag.className = result.confidence === 'low' ? 'badge warn' : 'badge';
 }
 
 function showError(msg) {
@@ -418,6 +367,7 @@ function showError(msg) {
   box.style.display = '';
   box.innerHTML = '<strong>エラー:</strong> ' + msg + '<br><small style="color:#e57373">・APIキーが正しいか確認してください<br>・ファイル形式: JPG・PNG・PDF のみ対応</small>';
 }
+
 function fileToBase64(file) {
   return new Promise((res, rej) => {
     if (!file.type.startsWith('image/')) {
@@ -428,21 +378,22 @@ function fileToBase64(file) {
       URL.revokeObjectURL(url);
       const canvas = document.createElement('canvas');
       let w = img.width, h = img.height;
-      if (w > 2000 || h > 2000) { const s = 2000 / Math.max(w, h); w = Math.round(w*s); h = Math.round(h*s); }
+      if (w > 2000 || h > 2000) { const s = 2000/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       let q = 0.85;
-      const compress = () => { const d = canvas.toDataURL('image/jpeg', q); const b = d.split(',')[1]; if (b.length * 0.75 <= 4.5*1024*1024 || q <= 0.3) { res(b); } else { q -= 0.1; compress(); } };
+      const compress = () => { const d = canvas.toDataURL('image/jpeg',q); const b=d.split(',')[1]; if (b.length*0.75<=4.5*1024*1024||q<=0.3){res(b);}else{q-=0.1;compress();}};
       compress();
     };
     img.onerror = () => rej(new Error('画像読み込み失敗')); img.src = url;
   });
 }
+
 function addToList() {
-  const rawDate = document.getElementById('f-date').value;
+  const raw = document.getElementById('f-date').value;
   records.push({
     id: Date.now(),
-    date: toDisplayDate(rawDate),
+    date: raw.replace(/-/g,'/'),
     store: document.getElementById('f-store').value,
     kamoku: document.getElementById('f-kamoku').value,
     amount: document.getElementById('f-amount').value,
@@ -451,33 +402,38 @@ function addToList() {
   document.getElementById('count').textContent = records.length;
   resetForm(); switchTab('list');
 }
+
 function resetForm() {
-  receiptDate = ''; receiptItems = '';
   document.getElementById('f-date').value = '';
   ['f-amount','f-store','f-biko'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-kamoku').value = '交際費';
   document.getElementById('kamokuHint').textContent = '';
   document.getElementById('resultSection').style.display = 'none';
   document.getElementById('errorBox').style.display = 'none';
-  document.getElementById('bulkDone').style.display = 'none';
+  document.getElementById('doneBox').style.display = 'none';
   document.getElementById('preview').style.display = 'none';
   document.getElementById('dropContent').style.display = '';
-  document.getElementById('dropContent').innerHTML = '<div class="drop-icon">🧾</div><p>クリックまたはドラッグ&ドロップ</p><small>JPG・PNG・PDF対応　／　複数枚まとめてOK</small>';
-  document.getElementById('statusBarSingle').innerHTML = '';
+  document.getElementById('dropContent').innerHTML = '<div class="drop-icon">🧾</div><p>複数枚まとめてアップロードできます</p><small>JPG・PNG・PDF対応</small><br><button class="upload-btn" onclick="document.getElementById(\'fileInput\').click()">ファイルを選択</button>';
+  document.getElementById('statusBar').innerHTML = '';
   document.getElementById('fileInput').value = '';
 }
+
 function removeRecord(id) { records = records.filter(r => r.id !== id); document.getElementById('count').textContent = records.length; renderList(); }
+
 function renderList() {
-  const el = document.getElementById('listContainer'); const exportRow = document.getElementById('exportRow');
+  const el = document.getElementById('listContainer');
+  const exportRow = document.getElementById('exportRow');
   if (records.length === 0) { el.innerHTML = '<div class="empty">まだ領収書が追加されていません</div>'; exportRow.style.display = 'none'; return; }
   exportRow.style.display = 'flex';
   el.innerHTML = '<div class="list-header"><span>発生日</span><span>取引先</span><span>勘定科目</span><span style="text-align:right">金額</span><span></span></div>' +
-    records.map(r => '<div class="list-row"><span>' + r.date + '</span><span>' + r.store + '</span><span><span class="kamoku-badge">' + r.kamoku + '</span></span><span style="text-align:right">¥' + Number(r.amount||0).toLocaleString() + '</span><button class="btn" style="padding:4px 8px;font-size:12px" onclick="removeRecord(' + r.id + ')">×</button></div>').join('');
+    records.map(r => '<div class="list-row"><span>'+r.date+'</span><span>'+r.store+'</span><span><span class="kamoku-badge">'+r.kamoku+'</span></span><span style="text-align:right">¥'+Number(r.amount||0).toLocaleString()+'</span><button class="btn" style="padding:4px 8px;font-size:12px" onclick="removeRecord('+r.id+')">×</button></div>').join('');
 }
+
 function exportExcel() {
   const headers = ['収支区分','管理番号','発生日','決済期日','取引先','取引先コード','勘定科目','税区分','金額','税計算区分','税額','備考','品目','部門','メモタグ（複数指定可、カンマ区切り）','決済日','決済口座','決済金額'];
   const rows = records.map(r => { const row = new Array(18).fill(''); row[0]='支出'; row[2]=r.date; row[4]=r.store; row[6]=r.kamoku; row[8]=Number(r.amount)||''; row[11]=r.biko; return row; });
-  const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   ws['!cols'] = [{wch:8},{wch:8},{wch:12},{wch:12},{wch:20},{wch:12},{wch:12},{wch:10},{wch:10},{wch:10},{wch:10},{wch:30},{wch:12},{wch:12},{wch:20},{wch:12},{wch:12},{wch:10}];
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
   XLSX.writeFile(wb, 'freee支出取引データ_' + new Date().toISOString().slice(0,10) + '.xlsx');
