@@ -50,13 +50,26 @@
   .btn:hover { background: #f5f5f5; }
   .btn-primary { background: #1a1a1a; color: #fff; border-color: transparent; }
   .btn-primary:hover { background: #333; }
+  .btn-danger { background: #fff; color: #c00; border-color: #fcc; }
+  .btn-danger:hover { background: #fff2f2; }
   .list-header { display: grid; grid-template-columns: 88px 1fr 90px 80px 32px; gap: 8px; padding: 4px 10px; font-size: 12px; color: #999; }
-  .list-row { display: grid; grid-template-columns: 88px 1fr 90px 80px 32px; gap: 8px; align-items: center; padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 6px; font-size: 13px; background: #fff; }
+  .list-row { display: grid; grid-template-columns: 88px 1fr 90px 80px 32px; gap: 8px; align-items: center; padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 6px; font-size: 13px; background: #fff; cursor: pointer; transition: background 0.15s; }
+  .list-row:hover { background: #f9f9f9; }
+  .list-row.reviewing { border-color: #1a1a1a; background: #f5f5f5; }
   .list-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kamoku-badge { font-size: 11px; padding: 2px 7px; border-radius: 4px; background: #e8eaf6; color: #3949ab; white-space: nowrap; }
   .empty { text-align: center; padding: 40px; color: #bbb; font-size: 14px; }
   .export-row { display: flex; justify-content: flex-end; margin-top: 12px; }
   .date-hint { font-size: 11px; color: #aaa; margin-top: 3px; }
+
+  /* ① レビューパネル */
+  .review-panel { background: #fff; border: 2px solid #1a1a1a; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
+  .review-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .review-panel-header span { font-size: 14px; font-weight: 600; }
+  .review-nav { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #888; }
+  .review-nav button { padding: 4px 10px; border-radius: 6px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 13px; }
+  .review-nav button:hover { background: #f5f5f5; }
+  .review-img { max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid #eee; display: block; margin: 10px auto; }
 </style>
 </head>
 <body>
@@ -76,9 +89,10 @@
     <button class="tab active" onclick="switchTab('scan')">読み取り</button>
     <button class="tab" onclick="switchTab('list')">リスト（<span id="count">0</span>件）</button>
   </div>
+
+  <!-- 読み取りタブ -->
   <div id="tab-scan">
     <div class="drop-zone" id="dropZone" ondragover="onDrag(event,true)" ondragleave="onDrag(event,false)" ondrop="onDrop(event)">
-      <!-- ★ multiple を必ずここに書く。onclickは使わない -->
       <input type="file" id="fileInput" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" multiple onchange="onFiles(this.files)">
       <div id="dropContent">
         <div class="drop-icon">🧾</div>
@@ -88,12 +102,12 @@
       </div>
       <img id="preview" class="preview-img" style="display:none">
     </div>
-
     <div class="status" id="statusBar"></div>
     <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
     <div class="error-box" id="errorBox" style="display:none"></div>
     <div class="done-box" id="doneBox" style="display:none"></div>
 
+    <!-- 1枚確認フォーム -->
     <div id="resultSection" style="display:none">
       <div class="result-card">
         <div class="result-header">
@@ -131,13 +145,62 @@
         <p class="auto-hint" id="kamokuHint"></p>
       </div>
       <div class="action-row">
-        <button class="btn" onclick="resetForm()">キャンセル</button>
+        <button class="btn" onclick="resetScan()">キャンセル</button>
         <button class="btn btn-primary" onclick="addToList()">リストに追加 →</button>
       </div>
     </div>
   </div>
 
+  <!-- リストタブ -->
   <div id="tab-list" style="display:none">
+
+    <!-- ① レビューパネル（リストの件をクリックで展開） -->
+    <div id="reviewPanel" style="display:none">
+      <div class="review-panel">
+        <div class="review-panel-header">
+          <span>✏️ 仕訳の確認・修正</span>
+          <div class="review-nav">
+            <button onclick="reviewPrev()">← 前</button>
+            <span id="reviewIndex">1 / 1</span>
+            <button onclick="reviewNext()">次 →</button>
+            <button onclick="closeReview()" style="margin-left:8px;">閉じる</button>
+          </div>
+        </div>
+        <img id="reviewImg" class="review-img" style="display:none">
+        <div class="field-grid" style="margin-top:10px;">
+          <div class="field-item">
+            <label>発生日（C列）</label>
+            <input type="date" id="r-date">
+          </div>
+          <div class="field-item">
+            <label>取引先（E列）</label>
+            <input type="text" id="r-store">
+          </div>
+          <div class="field-item">
+            <label>勘定科目（G列）</label>
+            <select id="r-kamoku">
+              <option value="交際費">交際費（飲食代 1,001円以上）</option>
+              <option value="会議費">会議費（飲食代 1,000円以下）</option>
+              <option value="消耗品費">消耗品費（備品）</option>
+              <option value="旅費交通費">旅費交通費（交通・ガソリン）</option>
+            </select>
+          </div>
+          <div class="field-item">
+            <label>金額・税込（I列）</label>
+            <input type="text" id="r-amount">
+          </div>
+          <div class="field-item full">
+            <label>備考（L列）</label>
+            <input type="text" id="r-biko">
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-danger" onclick="deleteReviewing()">削除</button>
+          <button class="btn btn-primary" onclick="saveReview()">保存して次へ →</button>
+        </div>
+      </div>
+    </div>
+
     <div id="listContainer"><div class="empty">まだ領収書が追加されていません</div></div>
     <div class="export-row" id="exportRow" style="display:none">
       <button class="btn btn-primary" onclick="exportExcel()">freee形式でExcelダウンロード (.xlsx)</button>
@@ -147,13 +210,17 @@
 
 <script>
 let records = [];
+let reviewingId = null;
 
+// ===== タブ =====
 function switchTab(tab) {
   document.getElementById('tab-scan').style.display = tab === 'scan' ? '' : 'none';
   document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
   document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', (i===0&&tab==='scan')||(i===1&&tab==='list')));
   if (tab === 'list') renderList();
 }
+
+// ===== ドロップゾーン =====
 function onDrag(e, over) { e.preventDefault(); document.getElementById('dropZone').classList.toggle('dragging', over); }
 function onDrop(e) {
   e.preventDefault();
@@ -161,13 +228,11 @@ function onDrop(e) {
   if (e.dataTransfer.files && e.dataTransfer.files.length > 0) onFiles(e.dataTransfer.files);
 }
 
-// ★ エントリポイント：1枚でも複数でもここから
 async function onFiles(files) {
   if (!files || files.length === 0) return;
   document.getElementById('errorBox').style.display = 'none';
   document.getElementById('doneBox').style.display = 'none';
   document.getElementById('resultSection').style.display = 'none';
-
   if (files.length === 1) {
     await runSingle(files[0]);
   } else {
@@ -175,7 +240,7 @@ async function onFiles(files) {
   }
 }
 
-// 1枚モード：結果確認画面を表示
+// ===== 1枚モード =====
 async function runSingle(file) {
   const preview = document.getElementById('preview');
   const dropContent = document.getElementById('dropContent');
@@ -200,26 +265,24 @@ async function runSingle(file) {
   }
 }
 
-// 複数枚モード：自動でリストに追加
+// ===== 複数枚一括モード =====
 async function runBulk(files) {
   const apiKey = document.getElementById('apiKey').value.trim();
   if (!apiKey) { showError('APIキーを入力してください。'); return; }
-
   document.getElementById('preview').style.display = 'none';
   document.getElementById('dropContent').style.display = '';
   document.getElementById('progressWrap').style.display = '';
-
   const total = files.length;
   let ok = 0, ng = 0, errs = [];
-
   for (let i = 0; i < total; i++) {
     const file = files[i];
-    document.getElementById('statusBar').innerHTML =
-      '<div class="spinner"></div>' + total + '枚中 ' + (i+1) + '枚目：' + file.name;
+    document.getElementById('statusBar').innerHTML = '<div class="spinner"></div>' + total + '枚中 ' + (i+1) + '枚目：' + file.name;
     document.getElementById('progressBar').style.width = Math.round(i / total * 100) + '%';
     try {
       const result = await callApi(file);
-      records.push({ id: Date.now() + i, date: result.date, store: result.store, kamoku: result.kamoku, amount: result.amount, biko: result.biko });
+      // 画像のObjectURLも保持（レビュー時にプレビュー表示するため）
+      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+      records.push({ id: Date.now() + i, date: result.date, store: result.store, kamoku: result.kamoku, amount: result.amount, biko: result.biko, previewUrl });
       document.getElementById('count').textContent = records.length;
       ok++;
     } catch(e) {
@@ -228,25 +291,21 @@ async function runBulk(files) {
     }
     if (i < total - 1) await new Promise(r => setTimeout(r, 500));
   }
-
   document.getElementById('progressBar').style.width = '100%';
   document.getElementById('statusBar').innerHTML = '';
   document.getElementById('progressWrap').style.display = 'none';
   document.getElementById('fileInput').value = '';
-
-  let msg = '✅ ' + ok + '枚の読み取りが完了しました！';
+  let msg = '✅ ' + ok + '枚の読み取りが完了！　リストタブで内容を確認・修正できます。';
   if (ng > 0) msg += '　⚠️ ' + ng + '枚でエラー：' + errs.join(' / ');
   document.getElementById('doneBox').textContent = msg;
   document.getElementById('doneBox').style.display = '';
-
-  setTimeout(() => switchTab('list'), 1000);
+  setTimeout(() => { switchTab('list'); openReview(records[0].id); }, 800);
 }
 
-// ★ API呼び出し共通関数
+// ===== API呼び出し =====
 async function callApi(file) {
   const apiKey = document.getElementById('apiKey').value.trim();
   if (!apiKey) throw new Error('APIキーを入力してください。');
-
   const base64 = await fileToBase64(file);
   const isPdf = file.type === 'application/pdf';
   const contentBlock = isPdf
@@ -284,18 +343,8 @@ async function callApi(file) {
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: '領収書の情報を抽出してください。日付は2026年を基準年として処理してください。' }] }]
-    })
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: '領収書の情報を抽出してください。日付は2026年を基準年として処理してください。' }] }] })
   });
   if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || 'HTTPエラー: ' + res.status); }
   const data = await res.json();
@@ -303,7 +352,7 @@ async function callApi(file) {
   let parsed;
   try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { throw new Error('AIの応答を解析できませんでした。'); }
 
-  // 日付の正規化
+  // ② 日付の正規化
   let d = normalizeDate(parsed.date || '');
   if (d) { const y = parseInt(d.split('/')[0]); if (y < 2020 || y > 2030) d = '2026/' + d.split('/')[1] + '/' + d.split('/')[2]; }
 
@@ -319,16 +368,15 @@ async function callApi(file) {
     dateForC = y + '/' + String(m).padStart(2,'0') + '/' + String(new Date(y, m, 0).getDate()).padStart(2,'0');
   }
 
-  return {
-    date: dateForC,
-    store: parsed.store || '',
-    kamoku: guessKamoku(parsed.items, parsed.amount),
-    amount: parsed.amount || '',
-    biko: (d + ' ' + (parsed.items || '')).trim(),
-    confidence: parsed.confidence || 'medium'
-  };
+  // ② 備考欄：「領収書の実日付 摘要」を正しく生成
+  const bikoDate = d || dateForC;
+  const bikoItems = parsed.items || '';
+  const biko = bikoDate && bikoItems ? bikoDate + ' ' + bikoItems : bikoDate || bikoItems;
+
+  return { date: dateForC, store: parsed.store || '', kamoku: guessKamoku(parsed.items, parsed.amount), amount: parsed.amount || '', biko, confidence: parsed.confidence || 'medium' };
 }
 
+// ===== ユーティリティ =====
 function normalizeDate(str) {
   if (!str) return '';
   str = str.trim();
@@ -338,7 +386,6 @@ function normalizeDate(str) {
   if (/^\d{1,2}\/\d{1,2}$/.test(str)) { const [m,d]=str.split('/').map(Number); return '2026/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'); }
   return str;
 }
-
 function guessKamoku(items, amount) {
   const t = (items||'').toLowerCase();
   const amt = parseInt((amount||'0').replace(/[^\d]/g,''))||0;
@@ -347,26 +394,7 @@ function guessKamoku(items, amount) {
   if (/飲食|食事|ランチ|ディナー|カフェ|コーヒー|居酒屋|レストラン|食堂|弁当|接待|懇親|飲み会/.test(t)) return amt<=1000?'会議費':'交際費';
   return amt>0&&amt<=1000?'会議費':'交際費';
 }
-
 const HINTS = { '交際費':'飲食代（1,001円以上）として自動判定','会議費':'飲食代（1,000円以下）として自動判定','消耗品費':'備品・消耗品として自動判定','旅費交通費':'交通機関・ガソリン代として自動判定' };
-
-function fillForm(result) {
-  document.getElementById('f-date').value = result.date.replace(/\//g, '-');
-  document.getElementById('f-store').value = result.store;
-  document.getElementById('f-amount').value = result.amount;
-  document.getElementById('f-biko').value = result.biko;
-  document.getElementById('f-kamoku').value = result.kamoku;
-  document.getElementById('kamokuHint').textContent = HINTS[result.kamoku] || '';
-  const tag = document.getElementById('confidenceTag');
-  tag.textContent = result.confidence === 'low' ? '要確認' : '読み取り完了';
-  tag.className = result.confidence === 'low' ? 'badge warn' : 'badge';
-}
-
-function showError(msg) {
-  const box = document.getElementById('errorBox');
-  box.style.display = '';
-  box.innerHTML = '<strong>エラー:</strong> ' + msg + '<br><small style="color:#e57373">・APIキーが正しいか確認してください<br>・ファイル形式: JPG・PNG・PDF のみ対応</small>';
-}
 
 function fileToBase64(file) {
   return new Promise((res, rej) => {
@@ -382,28 +410,32 @@ function fileToBase64(file) {
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       let q = 0.85;
-      const compress = () => { const d = canvas.toDataURL('image/jpeg',q); const b=d.split(',')[1]; if (b.length*0.75<=4.5*1024*1024||q<=0.3){res(b);}else{q-=0.1;compress();}};
+      const compress = () => { const d=canvas.toDataURL('image/jpeg',q); const b=d.split(',')[1]; if(b.length*0.75<=4.5*1024*1024||q<=0.3){res(b);}else{q-=0.1;compress();}};
       compress();
     };
     img.onerror = () => rej(new Error('画像読み込み失敗')); img.src = url;
   });
 }
 
+// ===== 1枚フォーム =====
+function fillForm(result) {
+  document.getElementById('f-date').value = result.date.replace(/\//g,'-');
+  document.getElementById('f-store').value = result.store;
+  document.getElementById('f-amount').value = result.amount;
+  document.getElementById('f-biko').value = result.biko;
+  document.getElementById('f-kamoku').value = result.kamoku;
+  document.getElementById('kamokuHint').textContent = HINTS[result.kamoku] || '';
+  const tag = document.getElementById('confidenceTag');
+  tag.textContent = result.confidence === 'low' ? '要確認' : '読み取り完了';
+  tag.className = result.confidence === 'low' ? 'badge warn' : 'badge';
+}
 function addToList() {
   const raw = document.getElementById('f-date').value;
-  records.push({
-    id: Date.now(),
-    date: raw.replace(/-/g,'/'),
-    store: document.getElementById('f-store').value,
-    kamoku: document.getElementById('f-kamoku').value,
-    amount: document.getElementById('f-amount').value,
-    biko: document.getElementById('f-biko').value
-  });
+  records.push({ id: Date.now(), date: raw.replace(/-/g,'/'), store: document.getElementById('f-store').value, kamoku: document.getElementById('f-kamoku').value, amount: document.getElementById('f-amount').value, biko: document.getElementById('f-biko').value, previewUrl: null });
   document.getElementById('count').textContent = records.length;
-  resetForm(); switchTab('list');
+  resetScan(); switchTab('list');
 }
-
-function resetForm() {
+function resetScan() {
   document.getElementById('f-date').value = '';
   ['f-amount','f-store','f-biko'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-kamoku').value = '交際費';
@@ -417,18 +449,88 @@ function resetForm() {
   document.getElementById('statusBar').innerHTML = '';
   document.getElementById('fileInput').value = '';
 }
+function showError(msg) {
+  document.getElementById('errorBox').style.display = '';
+  document.getElementById('errorBox').innerHTML = '<strong>エラー:</strong> ' + msg + '<br><small style="color:#e57373">・APIキーが正しいか確認してください<br>・ファイル形式: JPG・PNG・PDF のみ対応</small>';
+}
 
-function removeRecord(id) { records = records.filter(r => r.id !== id); document.getElementById('count').textContent = records.length; renderList(); }
+// ===== ① レビュー機能 =====
+function openReview(id) {
+  reviewingId = id;
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+  const idx = records.indexOf(r);
+  document.getElementById('reviewIndex').textContent = (idx+1) + ' / ' + records.length;
+  document.getElementById('r-date').value = r.date.replace(/\//g,'-');
+  document.getElementById('r-store').value = r.store;
+  document.getElementById('r-kamoku').value = r.kamoku;
+  document.getElementById('r-amount').value = r.amount;
+  document.getElementById('r-biko').value = r.biko;
+  const img = document.getElementById('reviewImg');
+  if (r.previewUrl) { img.src = r.previewUrl; img.style.display = 'block'; } else { img.style.display = 'none'; }
+  document.getElementById('reviewPanel').style.display = '';
+  renderList();
+}
+function closeReview() {
+  reviewingId = null;
+  document.getElementById('reviewPanel').style.display = 'none';
+  renderList();
+}
+function saveReview() {
+  const r = records.find(x => x.id === reviewingId);
+  if (!r) return;
+  r.date = document.getElementById('r-date').value.replace(/-/g,'/');
+  r.store = document.getElementById('r-store').value;
+  r.kamoku = document.getElementById('r-kamoku').value;
+  r.amount = document.getElementById('r-amount').value;
+  r.biko = document.getElementById('r-biko').value;
+  // 次の件へ
+  const idx = records.indexOf(r);
+  if (idx < records.length - 1) {
+    openReview(records[idx+1].id);
+  } else {
+    closeReview();
+    document.getElementById('doneBox').textContent = '✅ 全件の確認が完了しました！';
+    document.getElementById('doneBox').style.display = '';
+  }
+  renderList();
+}
+function deleteReviewing() {
+  const idx = records.findIndex(x => x.id === reviewingId);
+  records = records.filter(x => x.id !== reviewingId);
+  document.getElementById('count').textContent = records.length;
+  if (records.length === 0) { closeReview(); }
+  else { openReview(records[Math.min(idx, records.length-1)].id); }
+  renderList();
+}
+function reviewPrev() {
+  const idx = records.findIndex(x => x.id === reviewingId);
+  if (idx > 0) openReview(records[idx-1].id);
+}
+function reviewNext() {
+  const idx = records.findIndex(x => x.id === reviewingId);
+  if (idx < records.length-1) openReview(records[idx+1].id);
+}
 
+// ===== リスト =====
+function removeRecord(id, e) { e.stopPropagation(); records = records.filter(r => r.id !== id); document.getElementById('count').textContent = records.length; if (reviewingId === id) closeReview(); renderList(); }
 function renderList() {
   const el = document.getElementById('listContainer');
   const exportRow = document.getElementById('exportRow');
   if (records.length === 0) { el.innerHTML = '<div class="empty">まだ領収書が追加されていません</div>'; exportRow.style.display = 'none'; return; }
   exportRow.style.display = 'flex';
   el.innerHTML = '<div class="list-header"><span>発生日</span><span>取引先</span><span>勘定科目</span><span style="text-align:right">金額</span><span></span></div>' +
-    records.map(r => '<div class="list-row"><span>'+r.date+'</span><span>'+r.store+'</span><span><span class="kamoku-badge">'+r.kamoku+'</span></span><span style="text-align:right">¥'+Number(r.amount||0).toLocaleString()+'</span><button class="btn" style="padding:4px 8px;font-size:12px" onclick="removeRecord('+r.id+')">×</button></div>').join('');
+    records.map(r =>
+      '<div class="list-row' + (r.id===reviewingId?' reviewing':'') + '" onclick="openReview('+r.id+')">' +
+      '<span>'+r.date+'</span><span>'+r.store+'</span>' +
+      '<span><span class="kamoku-badge">'+r.kamoku+'</span></span>' +
+      '<span style="text-align:right">¥'+Number(r.amount||0).toLocaleString()+'</span>' +
+      '<button class="btn" style="padding:4px 8px;font-size:12px" onclick="removeRecord('+r.id+',event)">×</button>' +
+      '</div>'
+    ).join('');
 }
 
+// ===== Excel出力 =====
 function exportExcel() {
   const headers = ['収支区分','管理番号','発生日','決済期日','取引先','取引先コード','勘定科目','税区分','金額','税計算区分','税額','備考','品目','部門','メモタグ（複数指定可、カンマ区切り）','決済日','決済口座','決済金額'];
   const rows = records.map(r => { const row = new Array(18).fill(''); row[0]='支出'; row[2]=r.date; row[4]=r.store; row[6]=r.kamoku; row[8]=Number(r.amount)||''; row[11]=r.biko; return row; });
