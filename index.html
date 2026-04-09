@@ -51,6 +51,9 @@
   .kamoku-badge { font-size: 11px; padding: 2px 7px; border-radius: 4px; background: #e8eaf6; color: #3949ab; white-space: nowrap; }
   .empty { text-align: center; padding: 40px; color: #bbb; font-size: 14px; }
   .export-row { display: flex; justify-content: flex-end; margin-top: 12px; }
+  .date-picker-row { display: flex; gap: 8px; align-items: center; }
+  .date-picker-row input[type="month"] { flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: #fafafa; color: #1a1a1a; }
+  .date-hint { font-size: 11px; color: #aaa; margin-top: 3px; }
 </style>
 </head>
 <body>
@@ -90,8 +93,12 @@
         </div>
         <div class="field-grid">
           <div class="field-item">
-            <label>発生日（C列）</label>
-            <input type="text" id="f-date" placeholder="YYYY/MM/DD">
+            <label>計上月（C列・月末日を自動セット）</label>
+            <div class="date-picker-row">
+              <input type="month" id="f-month" onchange="setMonthEnd(this.value)">
+            </div>
+            <p class="date-hint">→ 発生日: <span id="f-date-display" style="font-weight:500;color:#1a1a1a;">未選択</span></p>
+            <input type="hidden" id="f-date">
           </div>
           <div class="field-item">
             <label>取引先（E列）</label>
@@ -111,8 +118,8 @@
             <input type="text" id="f-amount" placeholder="例: 1500">
           </div>
           <div class="field-item full">
-            <label>備考（L列）</label>
-            <input type="text" id="f-biko" placeholder="品目・内容">
+            <label>備考（L列）　※ 領収書の正規日付yyyy/mm/dd＋内容で自動生成</label>
+            <input type="text" id="f-biko" placeholder="yyyy/mm/dd 内容">
           </div>
         </div>
         <p class="auto-hint" id="kamokuHint"></p>
@@ -132,6 +139,16 @@
 </div>
 <script>
 let records = [];
+
+function setMonthEnd(monthValue) {
+  if (!monthValue) return;
+  const [year, month] = monthValue.split('-').map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  const dateStr = year + '/' + String(month).padStart(2, '0') + '/' + String(lastDay).padStart(2, '0');
+  document.getElementById('f-date').value = dateStr;
+  document.getElementById('f-date-display').textContent = dateStr;
+}
+
 function switchTab(tab) {
   document.getElementById('tab-scan').style.display = tab === 'scan' ? '' : 'none';
   document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
@@ -158,6 +175,7 @@ function guessKamoku(items, amount) {
   return amt > 0 && amt <= 1000 ? '会議費' : '交際費';
 }
 const HINTS = { '交際費': '飲食代（1,001円以上）として自動判定', '会議費': '飲食代（1,000円以下）として自動判定', '消耗品費': '備品・消耗品として自動判定', '旅費交通費': '交通機関・ガソリン代として自動判定' };
+
 async function analyzeReceipt(file) {
   const apiKey = document.getElementById('apiKey').value.trim();
   if (!apiKey) { showError('APIキーを入力してください。'); return; }
@@ -171,6 +189,19 @@ async function analyzeReceipt(file) {
     const contentBlock = isPdf
       ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
       : { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } };
+    const systemPrompt = `領収書から情報を抽出し、必ず以下のJSONのみ返答（説明・コードブロック不要）:
+{"date":"YYYY/MM/DD","store":"店名または会社名","amount":"税込合計を数字のみ","items":"品目の要約","confidence":"high|medium|low"}
+
+ルール:
+・date: 領収書に記載された正規の日付（西暦 YYYY/MM/DD）
+・amount: 税込合計の数字のみ（カンマなし）
+・items: 以下のルールで品目を要約する
+  - 食品・食料品・食材・飲料・お菓子・弁当などは → "食材等"
+  - 文房具・筆記用具・コピー用紙・備品・消耗品・電池・USBなどの物品は → "備品等"
+  - 飲食店・カフェ・居酒屋などでの飲食代は → "飲食代" または具体的な内容
+  - 交通費・ガソリンは → 具体的な内容（例: 電車代、ガソリン代）
+  - その他は具体的な内容を簡潔に
+・読み取れない項目は空文字`;
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -182,7 +213,7 @@ async function analyzeReceipt(file) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        system: '領収書から情報を抽出し、必ず以下のJSONのみ返答（説明・コードブロック不要）:\n{"date":"YYYY/MM/DD","store":"店名または会社名","amount":"税込合計を数字のみ","items":"品目や内容","confidence":"high|medium|low"}\n・日付は西暦\n・amountは税込合計の数字のみ（カンマなし）\n・itemsは具体的に\n・読み取れない項目は空文字',
+        system: systemPrompt,
         messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: '領収書の情報を抽出してください。' }] }]
       })
     });
@@ -192,10 +223,17 @@ async function analyzeReceipt(file) {
     let parsed;
     try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { throw new Error('AIの応答を解析できませんでした。'); }
     const kamoku = guessKamoku(parsed.items, parsed.amount);
-    document.getElementById('f-date').value = parsed.date || '';
+    if (parsed.date && /^\d{4}\/\d{2}\/\d{2}$/.test(parsed.date)) {
+      const parts = parsed.date.split('/');
+      const monthValue = parts[0] + '-' + parts[1];
+      document.getElementById('f-month').value = monthValue;
+      setMonthEnd(monthValue);
+    }
     document.getElementById('f-store').value = parsed.store || '';
     document.getElementById('f-amount').value = parsed.amount || '';
-    document.getElementById('f-biko').value = parsed.items || '';
+    const receiptDate = parsed.date || '';
+    const itemsText = parsed.items || '';
+    document.getElementById('f-biko').value = receiptDate ? (receiptDate + ' ' + itemsText).trim() : itemsText;
     document.getElementById('f-kamoku').value = kamoku;
     document.getElementById('kamokuHint').textContent = HINTS[kamoku];
     const tag = document.getElementById('confidenceTag');
@@ -231,12 +269,22 @@ function fileToBase64(file) {
   });
 }
 function addToList() {
-  records.push({ id: Date.now(), date: document.getElementById('f-date').value, store: document.getElementById('f-store').value, kamoku: document.getElementById('f-kamoku').value, amount: document.getElementById('f-amount').value, biko: document.getElementById('f-biko').value });
+  records.push({
+    id: Date.now(),
+    date: document.getElementById('f-date').value,
+    store: document.getElementById('f-store').value,
+    kamoku: document.getElementById('f-kamoku').value,
+    amount: document.getElementById('f-amount').value,
+    biko: document.getElementById('f-biko').value
+  });
   document.getElementById('count').textContent = records.length;
   resetForm(); switchTab('list');
 }
 function resetForm() {
-  ['f-date','f-amount','f-store','f-biko'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-date').value = '';
+  document.getElementById('f-date-display').textContent = '未選択';
+  document.getElementById('f-month').value = '';
+  ['f-amount','f-store','f-biko'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-kamoku').value = '交際費';
   document.getElementById('kamokuHint').textContent = '';
   document.getElementById('resultSection').style.display = 'none';
