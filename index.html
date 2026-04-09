@@ -90,14 +90,11 @@
           <span class="badge" id="confidenceTag">読み取り完了</span>
         </div>
         <div class="field-grid">
-
-          <!-- C列：発生日（月末日付をカレンダーで直接選択） -->
           <div class="field-item">
             <label>発生日（C列）　※ 計上月の月末日を選択</label>
-            <input type="date" id="f-date" onchange="updateBiko()">
+            <input type="date" id="f-date">
             <p class="date-hint">カレンダーで月末日を指定してください</p>
           </div>
-
           <div class="field-item">
             <label>取引先（E列）</label>
             <input type="text" id="f-store" placeholder="会社名・店名">
@@ -115,13 +112,10 @@
             <label>金額・税込（I列）</label>
             <input type="text" id="f-amount" placeholder="例: 1500">
           </div>
-
-          <!-- L列：備考欄（領収書の実日付＋摘要） -->
           <div class="field-item full">
             <label>備考（L列）　形式：領収書の日付 摘要　例）2026/3/4 食材費等</label>
             <input type="text" id="f-biko" placeholder="2026/3/4 食材費等">
           </div>
-
         </div>
         <p class="auto-hint" id="kamokuHint"></p>
       </div>
@@ -140,16 +134,8 @@
 </div>
 <script>
 let records = [];
-let receiptDate = ''; // 領収書の実際の日付（備考欄用）
-let receiptItems = ''; // 摘要テキスト（備考欄用）
-
-// 備考欄を「領収書実日付 摘要」形式で自動生成
-function updateBiko() {
-  // 備考欄は receiptDate（領収書の日付）＋ 摘要を使う
-  // 発生日(f-date)の変更は備考欄に影響しない
-  const biko = (receiptDate ? receiptDate + ' ' : '') + receiptItems;
-  document.getElementById('f-biko').value = biko.trim();
-}
+let receiptDate = '';
+let receiptItems = '';
 
 function switchTab(tab) {
   document.getElementById('tab-scan').style.display = tab === 'scan' ? '' : 'none';
@@ -178,20 +164,47 @@ function guessKamoku(items, amount) {
 }
 const HINTS = { '交際費': '飲食代（1,001円以上）として自動判定', '会議費': '飲食代（1,000円以下）として自動判定', '消耗品費': '備品・消耗品として自動判定', '旅費交通費': '交通機関・ガソリン代として自動判定' };
 
+// 日付文字列を YYYY/MM/DD に正規化（JS側の補正）
+function normalizeDate(str) {
+  if (!str) return '';
+  str = str.trim();
+
+  // すでに YYYY/MM/DD 形式
+  if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(str)) {
+    const [y, m, d] = str.split('/').map(Number);
+    return y + '/' + String(m).padStart(2,'0') + '/' + String(d).padStart(2,'0');
+  }
+  // YYYY-MM-DD 形式
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(str)) {
+    const [y, m, d] = str.split('-').map(Number);
+    return y + '/' + String(m).padStart(2,'0') + '/' + String(d).padStart(2,'0');
+  }
+  // YY/MM/DD または YY-MM-DD（2桁年 → 2000年代）
+  if (/^\d{2}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(str)) {
+    const parts = str.split(/[\/\-]/).map(Number);
+    const y = 2000 + parts[0];
+    return y + '/' + String(parts[1]).padStart(2,'0') + '/' + String(parts[2]).padStart(2,'0');
+  }
+  // MM/DD のみ（年なし → 2026年と仮定）
+  if (/^\d{1,2}\/\d{1,2}$/.test(str)) {
+    const [m, d] = str.split('/').map(Number);
+    return '2026/' + String(m).padStart(2,'0') + '/' + String(d).padStart(2,'0');
+  }
+  return str;
+}
+
+// 月末日を返す
+function getMonthEnd(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
 // YYYY/MM/DD → YYYY-MM-DD（input[type=date]用）
 function toInputDate(str) {
-  if (!str) return '';
-  return str.replace(/\//g, '-');
+  return str ? str.replace(/\//g, '-') : '';
 }
-// YYYY-MM-DD → YYYY/MM/DD（表示用）
+// YYYY-MM-DD → YYYY/MM/DD
 function toDisplayDate(str) {
-  if (!str) return '';
-  return str.replace(/-/g, '/');
-}
-// 月末日を返す（YYYY-MM形式から）
-function getMonthEnd(ym) {
-  const [y, m] = ym.split('-').map(Number);
-  return new Date(y, m, 0).getDate();
+  return str ? str.replace(/-/g, '/') : '';
 }
 
 async function analyzeReceipt(file) {
@@ -207,19 +220,42 @@ async function analyzeReceipt(file) {
     const contentBlock = isPdf
       ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
       : { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } };
-    const systemPrompt = `領収書から情報を抽出し、必ず以下のJSONのみ返答（説明・コードブロック不要）:
+
+    const systemPrompt = `あなたは領収書から情報を抽出する専門家です。
+必ず以下のJSONのみを返答してください（説明・コードブロック・前置き一切不要）:
 {"date":"YYYY/MM/DD","store":"店名または会社名","amount":"税込合計を数字のみ","items":"品目の要約","confidence":"high|medium|low"}
 
-ルール:
-・date: 領収書に記載された正規の日付（西暦 YYYY/MM/DD）
-・amount: 税込合計の数字のみ（カンマなし）
-・items: 以下のルールで品目を要約する
-  - 食品・食料品・食材・飲料・お菓子・弁当などは → "食材費等"
-  - 文房具・筆記用具・コピー用紙・備品・消耗品・電池・USBなどの物品は → "備品等"
-  - 飲食店・カフェ・居酒屋などでの飲食代は → "飲食代"
-  - 交通費・ガソリンは → 具体的な内容（例: 電車代、ガソリン代）
-  - その他は具体的な内容を簡潔に
-・読み取れない項目は空文字`;
+【日付の抽出ルール】※最重要
+現在は2026年です。基準年は2026年として処理してください。
+
+1. 西暦4桁がある場合：そのまま使用（例：2026年3月4日 → 2026/03/04）
+2. 和暦の場合：
+   - 令和8年 → 2026年
+   - 令和7年 → 2025年
+   - 令和6年 → 2024年
+   - 令和（年数なし）→ 2026年と推定
+3. 西暦2桁のみ（例：26/3/4）→ 2026/03/04
+4. 月日のみ（例：3月4日、3/4）→ 2026年と推定して 2026/03/04
+5. 日付が複数ある場合：最も大きく目立つ日付、または「日付」「発行日」「領収日」のラベルがついた日付を優先
+6. 読み取れない場合のみ空文字 ""
+
+【金額の抽出ルール】
+- 「合計」「税込合計」「お買い上げ合計」「total」が最優先
+- 税込金額を使用（税抜ではなく税込）
+- 数字のみ（カンマ・円・¥記号なし）
+
+【品目の要約ルール】
+- 食品・食料品・食材・飲料・お菓子・弁当 → "食材費等"
+- 文房具・筆記用具・コピー用紙・備品・消耗品・電池・USB → "備品等"
+- 飲食店・カフェ・居酒屋などでの飲食代 → "飲食代"
+- 交通費・ガソリン → 具体的な内容（例: 電車代、ガソリン代）
+- その他 → 具体的な内容を簡潔に
+
+【confidenceの判定】
+- high: 日付・金額ともに明確に読み取れた
+- medium: どちらか一方が不明瞭
+- low: 両方不明瞭、または推定が多い`;
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -232,7 +268,7 @@ async function analyzeReceipt(file) {
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
         system: systemPrompt,
-        messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: '領収書の情報を抽出してください。' }] }]
+        messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: '領収書の情報を抽出してください。日付は特に注意深く読み取り、2026年を基準年として処理してください。' }] }]
       })
     });
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || 'HTTPエラー: ' + res.status); }
@@ -241,28 +277,44 @@ async function analyzeReceipt(file) {
     let parsed;
     try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { throw new Error('AIの応答を解析できませんでした。'); }
 
-    const kamoku = guessKamoku(parsed.items, parsed.amount);
+    // JS側でも日付を正規化・補正
+    const normalizedDate = normalizeDate(parsed.date || '');
 
-    // 領収書の実日付を保存（備考欄用）
-    receiptDate = parsed.date || '';
+    // 妥当性チェック：未来すぎる・過去すぎる日付は2026年に補正
+    let finalDate = normalizedDate;
+    if (normalizedDate) {
+      const parts = normalizedDate.split('/');
+      const y = parseInt(parts[0]);
+      if (y < 2020 || y > 2030) {
+        // 年だけ2026に差し替え
+        finalDate = '2026/' + parts[1] + '/' + parts[2];
+      }
+    }
+
+    receiptDate = finalDate;
     receiptItems = parsed.items || '';
 
-    // C列 発生日：領収書の日付の月末日を自動セット（ユーザーが変更可能）
-    if (parsed.date && /^\d{4}\/\d{2}\/\d{2}$/.test(parsed.date)) {
-      const parts = parsed.date.split('/');
-      const ym = parts[0] + '-' + parts[1];
-      const lastDay = getMonthEnd(ym);
-      const monthEnd = parts[0] + '-' + parts[1] + '-' + String(lastDay).padStart(2, '0');
+    const kamoku = guessKamoku(receiptItems, parsed.amount);
+
+    // C列 発生日：月末日を自動セット
+    if (finalDate && /^\d{4}\/\d{2}\/\d{2}$/.test(finalDate)) {
+      const [y, m] = finalDate.split('/').map(Number);
+      const lastDay = getMonthEnd(y, m);
+      const monthEnd = y + '-' + String(m).padStart(2,'0') + '-' + String(lastDay).padStart(2,'0');
       document.getElementById('f-date').value = monthEnd;
     } else {
-      document.getElementById('f-date').value = '';
+      // 日付不明時は今月末をデフォルト
+      const now = new Date();
+      const y = now.getFullYear(), m = now.getMonth() + 1;
+      const lastDay = getMonthEnd(y, m);
+      document.getElementById('f-date').value = y + '-' + String(m).padStart(2,'0') + '-' + String(lastDay).padStart(2,'0');
     }
 
     document.getElementById('f-store').value = parsed.store || '';
     document.getElementById('f-amount').value = parsed.amount || '';
 
     // L列 備考：「領収書の実日付 摘要」形式
-    document.getElementById('f-biko').value = (receiptDate + ' ' + receiptItems).trim();
+    document.getElementById('f-biko').value = (finalDate + ' ' + receiptItems).trim();
 
     document.getElementById('f-kamoku').value = kamoku;
     document.getElementById('kamokuHint').textContent = HINTS[kamoku];
@@ -273,6 +325,7 @@ async function analyzeReceipt(file) {
     document.getElementById('resultSection').style.display = '';
   } catch(e) { statusBar.innerHTML = ''; showError(e.message); }
 }
+
 function showError(msg) {
   const box = document.getElementById('errorBox');
   box.style.display = '';
@@ -299,7 +352,6 @@ function fileToBase64(file) {
   });
 }
 function addToList() {
-  // f-date は YYYY-MM-DD 形式なので YYYY/MM/DD に変換してExcel出力
   const rawDate = document.getElementById('f-date').value;
   const displayDate = toDisplayDate(rawDate);
   records.push({
