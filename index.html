@@ -44,7 +44,7 @@
   .field-item label { font-size: 12px; color: #888; display: block; margin-bottom: 4px; }
   .field-item input, .field-item select { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: #fafafa; color: #1a1a1a; }
   .field-item.full { grid-column: 1 / -1; }
-  .auto-hint { font-size: 12px; color: #888; margin-top: 10px; }
+  .auto-hint { font-size: 12px; color: #888; margin-top: 4px; }
   .action-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
   .btn { padding: 8px 18px; border-radius: 8px; border: 1px solid #ddd; background: #fff; font-size: 14px; cursor: pointer; color: #333; }
   .btn:hover { background: #f5f5f5; }
@@ -74,13 +74,9 @@
   .modal-overlay.open { display: flex; }
   .modal-img { max-width: 95vw; max-height: 92vh; border-radius: 8px; object-fit: contain; }
   .modal-close { position: fixed; top: 16px; right: 20px; color: #fff; font-size: 32px; cursor: pointer; background: none; border: none; line-height: 1; }
-
-  /* ① その他手入力 */
-  .kamoku-wrap { display: flex; gap: 6px; align-items: flex-start; }
+  .kamoku-wrap { display: flex; gap: 6px; }
   .kamoku-wrap select { flex: 1; }
   .kamoku-other { flex: 1; display: none; }
-
-  /* ② 登録番号・税区分バッジ */
   .invoice-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #e3f2fd; color: #1565c0; margin-top: 4px; }
   .invoice-badge.none { background: #f5f5f5; color: #999; }
   .tax-hint { font-size: 11px; color: #7b1fa2; margin-top: 4px; background: #f3e5f5; padding: 3px 8px; border-radius: 4px; display: inline-block; }
@@ -110,6 +106,7 @@
     <button class="tab" onclick="switchTab('list')">リスト（<span id="count">0</span>件）</button>
   </div>
 
+  <!-- 読み取りタブ -->
   <div id="tab-scan">
     <div class="drop-zone" id="dropZone" ondragover="onDrag(event,true)" ondragleave="onDrag(event,false)" ondrop="onDrop(event)">
       <input type="file" id="fileInput" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" multiple onchange="onFiles(this.files)">
@@ -142,8 +139,6 @@
             <label>取引先（E列）</label>
             <input type="text" id="f-store" placeholder="会社名・店名">
           </div>
-
-          <!-- ① 勘定科目：その他で手入力欄が出る -->
           <div class="field-item">
             <label>勘定科目（G列）</label>
             <div class="kamoku-wrap">
@@ -158,25 +153,19 @@
             </div>
             <p class="auto-hint" id="kamokuHint"></p>
           </div>
-
           <div class="field-item">
             <label>金額・税込（I列）</label>
             <input type="text" id="f-amount" placeholder="例: 1500">
           </div>
-
-          <!-- ② 適格請求書番号 -->
           <div class="field-item full">
             <label>適格請求書登録番号（T+13桁）　※ AIが自動読み取り</label>
             <input type="text" id="f-invoice" placeholder="T1234567890123" oninput="updateTaxHint('f')" maxlength="14">
             <div id="f-invoice-badge"></div>
           </div>
-
           <div class="field-item full">
-            <label>備考（L列）　形式：領収書の日付 摘要　例）2026/3/4 食材費等</label>
-            <input type="text" id="f-biko" placeholder="2026/3/4 食材費等">
+            <label>備考（L列）　形式：領収書の日付 摘要 登録番号　例）2026/3/4 食材費等 T1234567890123</label>
+            <input type="text" id="f-biko" placeholder="2026/3/4 食材費等 T1234567890123">
           </div>
-
-          <!-- ③ 税区分（自動判定・表示のみ） -->
           <div class="field-item full">
             <label>税区分（H列）　※ 発生日・登録番号・品目から自動判定</label>
             <input type="text" id="f-taxcat" readonly style="background:#f0f4ff;color:#1a237e;font-size:13px;">
@@ -191,6 +180,7 @@
     </div>
   </div>
 
+  <!-- リストタブ -->
   <div id="tab-list" style="display:none">
     <div id="reviewPanel" style="display:none">
       <div class="review-panel">
@@ -213,8 +203,6 @@
             <label>取引先（E列）</label>
             <input type="text" id="r-store">
           </div>
-
-          <!-- ① レビュー：勘定科目その他 -->
           <div class="field-item">
             <label>勘定科目（G列）</label>
             <div class="kamoku-wrap">
@@ -228,25 +216,19 @@
               <input type="text" id="r-kamoku-other" class="kamoku-other" placeholder="勘定科目を入力">
             </div>
           </div>
-
           <div class="field-item">
             <label>金額・税込（I列）</label>
             <input type="text" id="r-amount">
           </div>
-
-          <!-- ② レビュー：適格請求書番号 -->
           <div class="field-item full">
             <label>適格請求書登録番号（T+13桁）</label>
             <input type="text" id="r-invoice" placeholder="T1234567890123" oninput="updateTaxHint('r')" maxlength="14">
             <div id="r-invoice-badge"></div>
           </div>
-
           <div class="field-item full">
             <label>備考（L列）</label>
             <input type="text" id="r-biko">
           </div>
-
-          <!-- ③ レビュー：税区分 -->
           <div class="field-item full">
             <label>税区分（H列）　※ 自動判定</label>
             <input type="text" id="r-taxcat" readonly style="background:#f0f4ff;color:#1a237e;font-size:13px;">
@@ -259,7 +241,6 @@
         </div>
       </div>
     </div>
-
     <div id="listContainer"><div class="empty">まだ領収書が追加されていません</div></div>
     <div class="export-row" id="exportRow" style="display:none">
       <button class="btn btn-primary" onclick="exportExcel()">freee形式でExcelダウンロード (.xlsx)</button>
@@ -271,217 +252,153 @@
 let records = [];
 let reviewingId = null;
 
-// ===== ① 勘定科目：その他切り替え =====
-function toggleOther(prefix) {
-  const sel = document.getElementById(prefix + '-kamoku');
-  const other = document.getElementById(prefix + '-kamoku-other');
-  other.style.display = sel.value === '__other__' ? 'block' : 'none';
-  updateTaxHint(prefix);
+// ===== 勘定科目その他切り替え =====
+function toggleOther(p) {
+  const sel = document.getElementById(p+'-kamoku');
+  const oth = document.getElementById(p+'-kamoku-other');
+  oth.style.display = sel.value === '__other__' ? 'block' : 'none';
+}
+function getKamoku(p) {
+  const sel = document.getElementById(p+'-kamoku');
+  return sel.value === '__other__' ? (document.getElementById(p+'-kamoku-other').value || '') : sel.value;
 }
 
-// 勘定科目の実際の値を取得
-function getKamoku(prefix) {
-  const sel = document.getElementById(prefix + '-kamoku');
-  if (sel.value === '__other__') {
-    return document.getElementById(prefix + '-kamoku-other').value || '';
-  }
-  return sel.value;
-}
+// ===== 適格請求書番号バリデーション =====
+function isValidInvoice(v) { return /^T\d{13}$/.test((v||'').trim()); }
 
-// ===== ③ 税区分の自動判定 =====
+// ===== 軽減税率判定 =====
+function isReducedTax(items) { return /食材|食品|食料|飲料|軽減|8%/.test(items||''); }
+
+// ===== 税区分自動判定 =====
 function calcTaxCategory(dateStr, invoiceNo, items) {
-  // 発生日をパース（YYYY/MM/DD or YYYY-MM-DD）
   if (!dateStr) return '';
-  const d = new Date(dateStr.replace(/\//g, '-'));
+  const d = new Date(dateStr.replace(/\//g,'-'));
   if (isNaN(d)) return '';
-
   const hasInvoice = isValidInvoice(invoiceNo);
-  const isReduced = isReducedTax(items); // 軽減税率（8%）対象か
-
-  // 日付区分
+  const reduced = isReducedTax(items);
   const d20231001 = new Date('2023-10-01');
   const d20261001 = new Date('2026-10-01');
   const d20291001 = new Date('2029-10-01');
-
   if (hasInvoice) {
-    // 適格請求書あり
-    if (d < d20231001) {
-      return isReduced ? '課税仕入8%（軽）' : '課税仕入10%';
-    } else if (d < d20261001) {
-      return isReduced ? '課対仕入（控80）8%（軽）' : '課対仕入（控80）10%';
-    } else if (d < d20291001) {
-      return isReduced ? '課対仕入（控50）8%（軽）' : '課対仕入（控50）10%';
-    } else {
-      return isReduced ? '課税仕入8%（軽）' : '課税仕入10%';
-    }
+    if (d < d20231001) return reduced ? '課税仕入8%（軽）' : '課税仕入10%';
+    if (d < d20261001) return reduced ? '課対仕入（控80）8%（軽）' : '課対仕入（控80）10%';
+    if (d < d20291001) return reduced ? '課対仕入（控50）8%（軽）' : '課対仕入（控50）10%';
+    return reduced ? '課税仕入8%（軽）' : '課税仕入10%';
   } else {
-    // 適格請求書なし（経過措置A：控除割合を適用）
-    if (d < d20231001) {
-      return isReduced ? '課税仕入8%（軽）' : '課税仕入10%';
-    } else if (d < d20261001) {
-      return isReduced ? '課対仕入（控80）8%（軽）' : '課対仕入（控80）10%';
-    } else if (d < d20291001) {
-      return isReduced ? '課対仕入（控50）8%（軽）' : '課対仕入（控50）10%';
-    } else {
-      return '対象外';
-    }
+    if (d < d20231001) return reduced ? '課税仕入8%（軽）' : '課税仕入10%';
+    if (d < d20261001) return reduced ? '課対仕入（控80）8%（軽）' : '課対仕入（控80）10%';
+    if (d < d20291001) return reduced ? '課対仕入（控50）8%（軽）' : '課対仕入（控50）10%';
+    return '対象外';
   }
 }
 
-// 軽減税率対象品目かどうか
-function isReducedTax(items) {
-  return /食材|食品|食料|飲料|軽減|8%/.test(items || '');
+// ===== 備考欄を組み立て（日付 摘要 登録番号） =====
+function buildBiko(dateStr, items, invoice) {
+  const parts = [dateStr, items, (isValidInvoice(invoice) ? invoice : '')].filter(Boolean);
+  return parts.join(' ');
 }
 
-// 適格請求書番号のバリデーション（T+13桁数字）
-function isValidInvoice(val) {
-  return /^T\d{13}$/.test((val || '').trim());
-}
-
-// 税区分を画面に反映
-function updateTaxHint(prefix) {
-  const dateVal = document.getElementById(prefix + '-date').value;
-  const invoiceVal = document.getElementById(prefix + '-invoice').value;
-  const bikoVal = document.getElementById(prefix + '-biko') ? document.getElementById(prefix + '-biko').value : '';
+// ===== 税区分・バッジを画面反映 =====
+function updateTaxHint(p) {
+  const dateVal = document.getElementById(p+'-date').value;
+  const invoiceVal = (document.getElementById(p+'-invoice').value||'').trim();
+  const bikoVal = (document.getElementById(p+'-biko')||{value:''}).value;
   const taxcat = calcTaxCategory(dateVal, invoiceVal, bikoVal);
-
-  // 税区分フィールド
-  const taxcatEl = document.getElementById(prefix + '-taxcat');
+  const taxcatEl = document.getElementById(p+'-taxcat');
   if (taxcatEl) taxcatEl.value = taxcat;
-
-  // 登録番号バッジ
-  const badgeEl = document.getElementById(prefix + '-invoice-badge');
+  const badgeEl = document.getElementById(p+'-invoice-badge');
   if (badgeEl) {
-    if (isValidInvoice(invoiceVal)) {
-      badgeEl.innerHTML = '<span class="invoice-badge">✅ 適格請求書あり</span>';
-    } else if (invoiceVal.trim()) {
-      badgeEl.innerHTML = '<span class="invoice-badge none">⚠️ 形式が正しくありません（T+13桁）</span>';
-    } else {
-      badgeEl.innerHTML = '<span class="invoice-badge none">登録番号なし</span>';
-    }
+    if (isValidInvoice(invoiceVal)) badgeEl.innerHTML = '<span class="invoice-badge">✅ 適格請求書あり</span>';
+    else if (invoiceVal) badgeEl.innerHTML = '<span class="invoice-badge none">⚠️ 形式が正しくありません（T+13桁）</span>';
+    else badgeEl.innerHTML = '<span class="invoice-badge none">登録番号なし</span>';
   }
-
-  // 税区分の説明
-  const hintEl = document.getElementById(prefix + '-tax-hint');
-  if (hintEl && taxcat) {
-    hintEl.innerHTML = '<span class="tax-hint">→ H列：' + taxcat + '</span>';
-  } else if (hintEl) {
-    hintEl.innerHTML = '';
-  }
+  const hintEl = document.getElementById(p+'-tax-hint');
+  if (hintEl) hintEl.innerHTML = taxcat ? '<span class="tax-hint">→ H列：'+taxcat+'</span>' : '';
 }
 
 // ===== タブ =====
 function switchTab(tab) {
-  document.getElementById('tab-scan').style.display = tab === 'scan' ? '' : 'none';
-  document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
-  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', (i===0&&tab==='scan')||(i===1&&tab==='list')));
-  if (tab === 'list') renderList();
+  document.getElementById('tab-scan').style.display = tab==='scan'?'':'none';
+  document.getElementById('tab-list').style.display = tab==='list'?'':'none';
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',(i===0&&tab==='scan')||(i===1&&tab==='list')));
+  if (tab==='list') renderList();
 }
 
 // ===== ドロップゾーン =====
-function onDrag(e, over) { e.preventDefault(); document.getElementById('dropZone').classList.toggle('dragging', over); }
-function onDrop(e) {
-  e.preventDefault();
-  document.getElementById('dropZone').classList.remove('dragging');
-  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) onFiles(e.dataTransfer.files);
-}
+function onDrag(e,over){e.preventDefault();document.getElementById('dropZone').classList.toggle('dragging',over);}
+function onDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('dragging');if(e.dataTransfer.files&&e.dataTransfer.files.length>0)onFiles(e.dataTransfer.files);}
 async function onFiles(files) {
-  if (!files || files.length === 0) return;
-  document.getElementById('errorBox').style.display = 'none';
-  document.getElementById('doneBox').style.display = 'none';
-  document.getElementById('resultSection').style.display = 'none';
-  if (files.length === 1) { await runSingle(files[0]); }
-  else { await runBulk(files); }
+  if (!files||files.length===0) return;
+  document.getElementById('errorBox').style.display='none';
+  document.getElementById('doneBox').style.display='none';
+  document.getElementById('resultSection').style.display='none';
+  if (files.length===1){await runSingle(files[0]);}else{await runBulk(files);}
 }
 
 // ===== 1枚モード =====
 async function runSingle(file) {
-  const preview = document.getElementById('preview');
-  const dropContent = document.getElementById('dropContent');
-  if (file.type.startsWith('image/')) {
-    preview.src = URL.createObjectURL(file);
-    preview.style.display = 'block';
-    dropContent.style.display = 'none';
-  } else {
-    preview.style.display = 'none';
-    dropContent.innerHTML = '<div class="drop-icon">📄</div><p>' + file.name + '</p>';
-  }
-  document.getElementById('progressWrap').style.display = 'none';
-  document.getElementById('statusBar').innerHTML = '<div class="spinner"></div>解析中...';
+  const preview=document.getElementById('preview');
+  const dropContent=document.getElementById('dropContent');
+  if (file.type.startsWith('image/')){preview.src=URL.createObjectURL(file);preview.style.display='block';dropContent.style.display='none';}
+  else{preview.style.display='none';dropContent.innerHTML='<div class="drop-icon">📄</div><p>'+file.name+'</p>';}
+  document.getElementById('progressWrap').style.display='none';
+  document.getElementById('statusBar').innerHTML='<div class="spinner"></div>解析中...';
   try {
-    const result = await callApi(file);
+    const result=await callApi(file);
     fillForm(result);
-    document.getElementById('statusBar').innerHTML = '';
-    document.getElementById('resultSection').style.display = '';
-  } catch(e) {
-    document.getElementById('statusBar').innerHTML = '';
-    showError(e.message);
-  }
+    document.getElementById('statusBar').innerHTML='';
+    document.getElementById('resultSection').style.display='';
+  } catch(e){document.getElementById('statusBar').innerHTML='';showError(e.message);}
 }
 
 // ===== 複数枚一括モード =====
 async function runBulk(files) {
-  const apiKey = document.getElementById('apiKey').value.trim();
-  if (!apiKey) { showError('APIキーを入力してください。'); return; }
-  document.getElementById('preview').style.display = 'none';
-  document.getElementById('dropContent').style.display = '';
-  document.getElementById('progressWrap').style.display = '';
-  const total = files.length;
-  let ok = 0, ng = 0, errs = [];
-  const firstOkIndex = records.length;
-  for (let i = 0; i < total; i++) {
-    const file = files[i];
-    document.getElementById('statusBar').innerHTML = '<div class="spinner"></div>' + total + '枚中 ' + (i+1) + '枚目：' + file.name;
-    document.getElementById('progressBar').style.width = Math.round(i / total * 100) + '%';
+  const apiKey=document.getElementById('apiKey').value.trim();
+  if (!apiKey){showError('APIキーを入力してください。');return;}
+  document.getElementById('preview').style.display='none';
+  document.getElementById('dropContent').style.display='';
+  document.getElementById('progressWrap').style.display='';
+  const total=files.length;
+  let ok=0,ng=0,errs=[];
+  const firstOkIndex=records.length;
+  for (let i=0;i<total;i++) {
+    const file=files[i];
+    document.getElementById('statusBar').innerHTML='<div class="spinner"></div>'+total+'枚中 '+(i+1)+'枚目：'+file.name;
+    document.getElementById('progressBar').style.width=Math.round(i/total*100)+'%';
     try {
-      const result = await callApi(file);
-      records.push({
-        id: Date.now() + i,
-        date: result.date,
-        store: result.store,
-        kamoku: result.kamoku,
-        amount: result.amount,
-        biko: result.biko,
-        invoice: result.invoice,
-        taxcat: result.taxcat,
-        previewDataUrl: result.previewDataUrl,
-        pdfDataUrl: result.pdfDataUrl,
-        isPdf: result.isPdf
-      });
-      document.getElementById('count').textContent = records.length;
+      const result=await callApi(file);
+      records.push({id:Date.now()+i,date:result.date,store:result.store,kamoku:result.kamoku,amount:result.amount,biko:result.biko,invoice:result.invoice,taxcat:result.taxcat,previewDataUrl:result.previewDataUrl,pdfDataUrl:result.pdfDataUrl,isPdf:result.isPdf});
+      document.getElementById('count').textContent=records.length;
       ok++;
-    } catch(e) {
-      ng++;
-      errs.push(file.name + '：' + e.message);
-    }
-    if (i < total - 1) await new Promise(r => setTimeout(r, 500));
+    } catch(e){ng++;errs.push(file.name+'：'+e.message);}
+    if (i<total-1) await new Promise(r=>setTimeout(r,500));
   }
-  document.getElementById('progressBar').style.width = '100%';
-  document.getElementById('statusBar').innerHTML = '';
-  document.getElementById('progressWrap').style.display = 'none';
-  document.getElementById('fileInput').value = '';
-  let msg = '✅ ' + ok + '枚の読み取りが完了！　リストをタップして内容を確認・修正できます。';
-  if (ng > 0) msg += '　⚠️ ' + ng + '枚でエラー：' + errs.join(' / ');
-  document.getElementById('doneBox').textContent = msg;
-  document.getElementById('doneBox').style.display = '';
-  if (records.length > 0) setTimeout(() => { switchTab('list'); openReview(records[firstOkIndex].id); }, 800);
+  document.getElementById('progressBar').style.width='100%';
+  document.getElementById('statusBar').innerHTML='';
+  document.getElementById('progressWrap').style.display='none';
+  document.getElementById('fileInput').value='';
+  let msg='✅ '+ok+'枚の読み取りが完了！　リストをタップして内容を確認・修正できます。';
+  if (ng>0) msg+='　⚠️ '+ng+'枚でエラー：'+errs.join(' / ');
+  document.getElementById('doneBox').textContent=msg;
+  document.getElementById('doneBox').style.display='';
+  if (records.length>0) setTimeout(()=>{switchTab('list');openReview(records[firstOkIndex].id);},800);
 }
 
 // ===== API呼び出し =====
 async function callApi(file) {
-  const apiKey = document.getElementById('apiKey').value.trim();
+  const apiKey=document.getElementById('apiKey').value.trim();
   if (!apiKey) throw new Error('APIキーを入力してください。');
-  const isPdf = file.type === 'application/pdf';
-  const base64 = await fileToBase64(file);
-  const previewDataUrl = !isPdf ? 'data:image/jpeg;base64,' + base64 : null;
-  const pdfDataUrl = isPdf ? 'data:application/pdf;base64,' + base64 : null;
-  const contentBlock = isPdf
-    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
-    : { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } };
+  const isPdf=file.type==='application/pdf';
+  const base64=await fileToBase64(file);
+  const previewDataUrl=!isPdf?'data:image/jpeg;base64,'+base64:null;
+  const pdfDataUrl=isPdf?'data:application/pdf;base64,'+base64:null;
+  const contentBlock=isPdf
+    ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}}
+    :{type:'image',source:{type:'base64',media_type:'image/jpeg',data:base64}};
 
-  const systemPrompt = `あなたは領収書から情報を抽出する専門家です。
+  const systemPrompt=`あなたは領収書から情報を抽出する専門家です。
 必ず以下のJSONのみを返答してください（説明・コードブロック・前置き一切不要）:
-{"date":"YYYY/MM/DD","store":"店名または会社名","amount":"税込合計を数字のみ","items":"品目の要約","invoice":"適格請求書登録番号またはnull","confidence":"high|medium|low"}
+{"date":"YYYY/MM/DD","store":"店名または会社名","amount":"税込合計を数字のみ","items":"品目の要約","invoice":"T+13桁またはnull","confidence":"high|medium|low"}
 
 【日付の抽出ルール】※最重要
 現在は2026年です。基準年は2026年として処理してください。
@@ -507,292 +424,218 @@ async function callApi(file) {
 - 「T」から始まる13桁の数字を探す（例：T1234567890123）
 - 「登録番号」「適格請求書」「インボイス番号」のラベルの近くにある番号を優先
 - 見つかった場合："T1234567890123" の形式で返す
-- 見つからない場合：null を返す（空文字ではなくnull）
+- 見つからない場合：null を返す
 
 【confidenceの判定】
 - high: 日付・金額ともに明確
 - medium: どちらか一方が不明瞭
 - low: 両方不明瞭または推定が多い`;
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: '領収書の情報を抽出してください。適格請求書登録番号（T+13桁）があれば必ず読み取ってください。日付は2026年を基準年として処理してください。' }] }] })
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages:[{role:'user',content:[contentBlock,{type:'text',text:'領収書の情報を抽出してください。適格請求書登録番号（T+13桁）があれば必ず読み取ってください。日付は2026年を基準年として処理してください。'}]}]})
   });
-  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || 'HTTPエラー: ' + res.status); }
-  const data = await res.json();
-  const text = data.content.map(b => b.text || '').join('');
+  if (!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err?.error?.message||'HTTPエラー: '+res.status);}
+  const data=await res.json();
+  const text=data.content.map(b=>b.text||'').join('');
   let parsed;
-  try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { throw new Error('AIの応答を解析できませんでした。'); }
+  try{parsed=JSON.parse(text.replace(/```json|```/g,'').trim());}catch{throw new Error('AIの応答を解析できませんでした。');}
 
-  let d = normalizeDate(parsed.date || '');
-  if (d) { const y = parseInt(d.split('/')[0]); if (y < 2020 || y > 2030) d = '2026/' + d.split('/')[1] + '/' + d.split('/')[2]; }
-  let dateForC = '';
-  if (d && /^\d{4}\/\d{2}\/\d{2}$/.test(d)) {
-    const [y, m] = d.split('/').map(Number);
-    const last = new Date(y, m, 0).getDate();
-    dateForC = y + '/' + String(m).padStart(2,'0') + '/' + String(last).padStart(2,'0');
+  let d=normalizeDate(parsed.date||'');
+  if (d){const y=parseInt(d.split('/')[0]);if(y<2020||y>2030)d='2026/'+d.split('/')[1]+'/'+d.split('/')[2];}
+  let dateForC='';
+  if (d&&/^\d{4}\/\d{2}\/\d{2}$/.test(d)){
+    const [y,m]=d.split('/').map(Number);
+    const last=new Date(y,m,0).getDate();
+    dateForC=y+'/'+String(m).padStart(2,'0')+'/'+String(last).padStart(2,'0');
   } else {
-    const now = new Date(); const y = now.getFullYear(), m = now.getMonth() + 1;
-    dateForC = y + '/' + String(m).padStart(2,'0') + '/' + String(new Date(y, m, 0).getDate()).padStart(2,'0');
+    const now=new Date();const y=now.getFullYear(),m=now.getMonth()+1;
+    dateForC=y+'/'+String(m).padStart(2,'0')+'/'+String(new Date(y,m,0).getDate()).padStart(2,'0');
   }
 
-  const bikoDate = d || dateForC;
-  const bikoItems = parsed.items || '';
-  const biko = bikoDate && bikoItems ? bikoDate + ' ' + bikoItems : bikoDate || bikoItems;
+  const invoice=(parsed.invoice&&isValidInvoice(parsed.invoice))?parsed.invoice:'';
+  const items=parsed.items||'';
+  // 備考欄：領収書の実日付 摘要 登録番号
+  const biko=buildBiko(d||dateForC, items, invoice);
+  const taxcat=calcTaxCategory(dateForC.replace(/\//g,'-'), invoice, items);
 
-  // ② 登録番号
-  const invoice = (parsed.invoice && isValidInvoice(parsed.invoice)) ? parsed.invoice : '';
-
-  // ③ 税区分を自動計算
-  const taxcat = calcTaxCategory(dateForC.replace(/\//g,'-'), invoice, bikoItems);
-
-  return {
-    date: dateForC,
-    store: parsed.store || '',
-    kamoku: guessKamoku(parsed.items, parsed.amount),
-    amount: parsed.amount || '',
-    biko,
-    invoice,
-    taxcat,
-    confidence: parsed.confidence || 'medium',
-    previewDataUrl,
-    pdfDataUrl,
-    isPdf
-  };
+  return {date:dateForC,store:parsed.store||'',kamoku:guessKamoku(items,parsed.amount),amount:parsed.amount||'',biko,invoice,taxcat,confidence:parsed.confidence||'medium',previewDataUrl,pdfDataUrl,isPdf};
 }
 
 // ===== ユーティリティ =====
 function normalizeDate(str) {
   if (!str) return '';
-  str = str.trim();
-  if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(str)) { const [y,m,d]=str.split('/').map(Number); return y+'/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'); }
-  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(str)) { const [y,m,d]=str.split('-').map(Number); return y+'/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'); }
-  if (/^\d{2}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(str)) { const p=str.split(/[\/\-]/).map(Number); return (2000+p[0])+'/'+String(p[1]).padStart(2,'0')+'/'+String(p[2]).padStart(2,'0'); }
-  if (/^\d{1,2}\/\d{1,2}$/.test(str)) { const [m,d]=str.split('/').map(Number); return '2026/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'); }
+  str=str.trim();
+  if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(str)){const [y,m,d]=str.split('/').map(Number);return y+'/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0');}
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(str)){const [y,m,d]=str.split('-').map(Number);return y+'/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0');}
+  if (/^\d{2}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(str)){const p=str.split(/[\/\-]/).map(Number);return (2000+p[0])+'/'+String(p[1]).padStart(2,'0')+'/'+String(p[2]).padStart(2,'0');}
+  if (/^\d{1,2}\/\d{1,2}$/.test(str)){const [m,d]=str.split('/').map(Number);return '2026/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0');}
   return str;
 }
-function guessKamoku(items, amount) {
-  const t = (items||'').toLowerCase();
-  const amt = parseInt((amount||'0').replace(/[^\d]/g,''))||0;
+function guessKamoku(items,amount) {
+  const t=(items||'').toLowerCase();
+  const amt=parseInt((amount||'0').replace(/[^\d]/g,''))||0;
   if (/ガソリン|交通|電車|バス|タクシー|新幹線|飛行機|suica|pasmo|ic/.test(t)) return '旅費交通費';
   if (/備品等|備品|文房具|消耗|印刷|コピー|usb|ケーブル|電池|ボールペン|ノート|用紙|トナー/.test(t)) return '消耗品費';
   if (/飲食|食事|ランチ|ディナー|カフェ|コーヒー|居酒屋|レストラン|食堂|弁当|接待|懇親|飲み会/.test(t)) return amt<=1000?'会議費':'交際費';
   return amt>0&&amt<=1000?'会議費':'交際費';
 }
-const HINTS = { '交際費':'飲食代（1,001円以上）として自動判定','会議費':'飲食代（1,000円以下）として自動判定','消耗品費':'備品・消耗品として自動判定','旅費交通費':'交通機関・ガソリン代として自動判定' };
+const HINTS={'交際費':'飲食代（1,001円以上）として自動判定','会議費':'飲食代（1,000円以下）として自動判定','消耗品費':'備品・消耗品として自動判定','旅費交通費':'交通機関・ガソリン代として自動判定'};
 
 function fileToBase64(file) {
-  return new Promise((res, rej) => {
-    if (!file.type.startsWith('image/')) {
-      const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = () => rej(new Error('読み込み失敗')); r.readAsDataURL(file); return;
-    }
-    const img = new Image(); const url = URL.createObjectURL(file);
-    img.onload = () => {
+  return new Promise((res,rej)=>{
+    if (!file.type.startsWith('image/')){const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('読み込み失敗'));r.readAsDataURL(file);return;}
+    const img=new Image();const url=URL.createObjectURL(file);
+    img.onload=()=>{
       URL.revokeObjectURL(url);
-      const canvas = document.createElement('canvas');
-      let w = img.width, h = img.height;
-      if (w > 2000 || h > 2000) { const s = 2000/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      let q = 0.85;
-      const compress = () => { const d=canvas.toDataURL('image/jpeg',q); const b=d.split(',')[1]; if(b.length*0.75<=4.5*1024*1024||q<=0.3){res(b);}else{q-=0.1;compress();}};
+      const canvas=document.createElement('canvas');
+      let w=img.width,h=img.height;
+      if(w>2000||h>2000){const s=2000/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      let q=0.85;
+      const compress=()=>{const d=canvas.toDataURL('image/jpeg',q);const b=d.split(',')[1];if(b.length*0.75<=4.5*1024*1024||q<=0.3){res(b);}else{q-=0.1;compress();}};
       compress();
     };
-    img.onerror = () => rej(new Error('画像読み込み失敗')); img.src = url;
+    img.onerror=()=>rej(new Error('画像読み込み失敗'));img.src=url;
   });
 }
 
-// ===== 1枚フォームへの反映 =====
+// ===== 1枚フォーム =====
 function fillForm(result) {
-  document.getElementById('f-date').value = result.date.replace(/\//g,'-');
-  document.getElementById('f-store').value = result.store;
-  document.getElementById('f-amount').value = result.amount;
-  document.getElementById('f-biko').value = result.biko;
-  document.getElementById('f-invoice').value = result.invoice || '';
-
-  // 勘定科目
-  const sel = document.getElementById('f-kamoku');
-  const opts = Array.from(sel.options).map(o => o.value);
-  if (opts.includes(result.kamoku)) {
-    sel.value = result.kamoku;
-    document.getElementById('f-kamoku-other').style.display = 'none';
-  } else {
-    sel.value = '__other__';
-    document.getElementById('f-kamoku-other').style.display = 'block';
-    document.getElementById('f-kamoku-other').value = result.kamoku;
-  }
-  document.getElementById('kamokuHint').textContent = HINTS[result.kamoku] || '';
-
-  const tag = document.getElementById('confidenceTag');
-  tag.textContent = result.confidence === 'low' ? '要確認' : '読み取り完了';
-  tag.className = result.confidence === 'low' ? 'badge warn' : 'badge';
-
+  document.getElementById('f-date').value=result.date.replace(/\//g,'-');
+  document.getElementById('f-store').value=result.store;
+  document.getElementById('f-amount').value=result.amount;
+  document.getElementById('f-biko').value=result.biko;
+  document.getElementById('f-invoice').value=result.invoice||'';
+  const sel=document.getElementById('f-kamoku');
+  const opts=Array.from(sel.options).map(o=>o.value);
+  if(opts.includes(result.kamoku)){sel.value=result.kamoku;document.getElementById('f-kamoku-other').style.display='none';}
+  else{sel.value='__other__';document.getElementById('f-kamoku-other').style.display='block';document.getElementById('f-kamoku-other').value=result.kamoku;}
+  document.getElementById('kamokuHint').textContent=HINTS[result.kamoku]||'';
+  const tag=document.getElementById('confidenceTag');
+  tag.textContent=result.confidence==='low'?'要確認':'読み取り完了';
+  tag.className=result.confidence==='low'?'badge warn':'badge';
   updateTaxHint('f');
 }
-
 function addToList() {
-  const raw = document.getElementById('f-date').value;
-  const invoice = document.getElementById('f-invoice').value.trim();
-  const biko = document.getElementById('f-biko').value;
-  const taxcat = calcTaxCategory(raw, invoice, biko);
-  records.push({
-    id: Date.now(),
-    date: raw.replace(/-/g,'/'),
-    store: document.getElementById('f-store').value,
-    kamoku: getKamoku('f'),
-    amount: document.getElementById('f-amount').value,
-    biko,
-    invoice,
-    taxcat,
-    previewDataUrl: null, pdfDataUrl: null, isPdf: false
-  });
-  document.getElementById('count').textContent = records.length;
-  resetScan(); switchTab('list');
+  const raw=document.getElementById('f-date').value;
+  const invoice=(document.getElementById('f-invoice').value||'').trim();
+  const bikoRaw=document.getElementById('f-biko').value;
+  // 登録番号がまだ備考に入っていなければ追加
+  const biko=isValidInvoice(invoice)&&!bikoRaw.includes(invoice)?(bikoRaw+' '+invoice).trim():bikoRaw;
+  const taxcat=calcTaxCategory(raw,invoice,bikoRaw);
+  records.push({id:Date.now(),date:raw.replace(/-/g,'/'),store:document.getElementById('f-store').value,kamoku:getKamoku('f'),amount:document.getElementById('f-amount').value,biko,invoice,taxcat,previewDataUrl:null,pdfDataUrl:null,isPdf:false});
+  document.getElementById('count').textContent=records.length;
+  resetScan();switchTab('list');
 }
-
 function resetScan() {
-  document.getElementById('f-date').value = '';
-  document.getElementById('f-invoice').value = '';
-  ['f-amount','f-store','f-biko'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('f-kamoku').value = '交際費';
-  document.getElementById('f-kamoku-other').style.display = 'none';
-  document.getElementById('f-kamoku-other').value = '';
-  document.getElementById('kamokuHint').textContent = '';
-  document.getElementById('f-taxcat').value = '';
-  document.getElementById('f-invoice-badge').innerHTML = '';
-  document.getElementById('f-tax-hint').innerHTML = '';
-  document.getElementById('resultSection').style.display = 'none';
-  document.getElementById('errorBox').style.display = 'none';
-  document.getElementById('doneBox').style.display = 'none';
-  document.getElementById('preview').style.display = 'none';
-  document.getElementById('preview').src = '';
-  document.getElementById('dropContent').style.display = '';
-  document.getElementById('dropContent').innerHTML = '<div class="drop-icon">🧾</div><p>複数枚まとめてアップロードできます</p><small>JPG・PNG・PDF対応</small><br><button class="upload-btn" onclick="document.getElementById(\'fileInput\').click()">ファイルを選択</button>';
-  document.getElementById('statusBar').innerHTML = '';
-  document.getElementById('fileInput').value = '';
+  document.getElementById('f-date').value='';
+  document.getElementById('f-invoice').value='';
+  ['f-amount','f-store','f-biko'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-kamoku').value='交際費';
+  document.getElementById('f-kamoku-other').style.display='none';
+  document.getElementById('f-kamoku-other').value='';
+  document.getElementById('kamokuHint').textContent='';
+  document.getElementById('f-taxcat').value='';
+  document.getElementById('f-invoice-badge').innerHTML='';
+  document.getElementById('f-tax-hint').innerHTML='';
+  document.getElementById('resultSection').style.display='none';
+  document.getElementById('errorBox').style.display='none';
+  document.getElementById('doneBox').style.display='none';
+  document.getElementById('preview').style.display='none';
+  document.getElementById('preview').src='';
+  document.getElementById('dropContent').style.display='';
+  document.getElementById('dropContent').innerHTML='<div class="drop-icon">🧾</div><p>複数枚まとめてアップロードできます</p><small>JPG・PNG・PDF対応</small><br><button class="upload-btn" onclick="document.getElementById(\'fileInput\').click()">ファイルを選択</button>';
+  document.getElementById('statusBar').innerHTML='';
+  document.getElementById('fileInput').value='';
 }
-function showError(msg) {
-  document.getElementById('errorBox').style.display = '';
-  document.getElementById('errorBox').innerHTML = '<strong>エラー:</strong> ' + msg + '<br><small style="color:#e57373">・APIキーが正しいか確認してください<br>・ファイル形式: JPG・PNG・PDF のみ対応</small>';
-}
+function showError(msg){document.getElementById('errorBox').style.display='';document.getElementById('errorBox').innerHTML='<strong>エラー:</strong> '+msg+'<br><small style="color:#e57373">・APIキーが正しいか確認してください<br>・ファイル形式: JPG・PNG・PDF のみ対応</small>';}
 
 // ===== レビュー =====
 function openReview(id) {
-  reviewingId = id;
-  const r = records.find(x => x.id === id);
+  reviewingId=id;
+  const r=records.find(x=>x.id===id);
   if (!r) return;
-  const idx = records.indexOf(r);
-  document.getElementById('reviewIndex').textContent = (idx+1) + ' / ' + records.length;
-  document.getElementById('r-date').value = r.date.replace(/\//g,'-');
-  document.getElementById('r-store').value = r.store;
-  document.getElementById('r-amount').value = r.amount;
-  document.getElementById('r-biko').value = r.biko;
-  document.getElementById('r-invoice').value = r.invoice || '';
-
-  // 勘定科目
-  const sel = document.getElementById('r-kamoku');
-  const opts = Array.from(sel.options).map(o => o.value);
-  if (opts.includes(r.kamoku)) {
-    sel.value = r.kamoku;
-    document.getElementById('r-kamoku-other').style.display = 'none';
-  } else {
-    sel.value = '__other__';
-    document.getElementById('r-kamoku-other').style.display = 'block';
-    document.getElementById('r-kamoku-other').value = r.kamoku;
-  }
-
-  const wrap = document.getElementById('reviewImgWrap');
-  if (r.previewDataUrl) {
-    wrap.innerHTML = '<img class="review-thumb" src="' + r.previewDataUrl + '" alt="領収書" onclick="openModal(\'' + r.previewDataUrl + '\')" title="タップで拡大">';
-  } else if (r.isPdf && r.pdfDataUrl) {
-    wrap.innerHTML = '<iframe class="pdf-preview" src="' + r.pdfDataUrl + '" title="領収書PDF"></iframe>';
-  } else {
-    wrap.innerHTML = '';
-  }
-
+  const idx=records.indexOf(r);
+  document.getElementById('reviewIndex').textContent=(idx+1)+' / '+records.length;
+  document.getElementById('r-date').value=r.date.replace(/\//g,'-');
+  document.getElementById('r-store').value=r.store;
+  document.getElementById('r-amount').value=r.amount;
+  document.getElementById('r-biko').value=r.biko;
+  document.getElementById('r-invoice').value=r.invoice||'';
+  const sel=document.getElementById('r-kamoku');
+  const opts=Array.from(sel.options).map(o=>o.value);
+  if(opts.includes(r.kamoku)){sel.value=r.kamoku;document.getElementById('r-kamoku-other').style.display='none';}
+  else{sel.value='__other__';document.getElementById('r-kamoku-other').style.display='block';document.getElementById('r-kamoku-other').value=r.kamoku;}
+  const wrap=document.getElementById('reviewImgWrap');
+  if(r.previewDataUrl){wrap.innerHTML='<img class="review-thumb" src="'+r.previewDataUrl+'" alt="領収書" onclick="openModal(\''+r.previewDataUrl+'\')" title="タップで拡大">';}
+  else if(r.isPdf&&r.pdfDataUrl){wrap.innerHTML='<iframe class="pdf-preview" src="'+r.pdfDataUrl+'" title="領収書PDF"></iframe>';}
+  else{wrap.innerHTML='';}
   updateTaxHint('r');
-  document.getElementById('reviewPanel').style.display = '';
+  document.getElementById('reviewPanel').style.display='';
   renderList();
 }
-function closeReview() {
-  reviewingId = null;
-  document.getElementById('reviewPanel').style.display = 'none';
-  renderList();
-}
+function closeReview(){reviewingId=null;document.getElementById('reviewPanel').style.display='none';renderList();}
 function saveReview() {
-  const r = records.find(x => x.id === reviewingId);
+  const r=records.find(x=>x.id===reviewingId);
   if (!r) return;
-  r.date = document.getElementById('r-date').value.replace(/-/g,'/');
-  r.store = document.getElementById('r-store').value;
-  r.kamoku = getKamoku('r');
-  r.amount = document.getElementById('r-amount').value;
-  r.biko = document.getElementById('r-biko').value;
-  r.invoice = document.getElementById('r-invoice').value.trim();
-  r.taxcat = calcTaxCategory(document.getElementById('r-date').value, r.invoice, r.biko);
-  const idx = records.indexOf(r);
-  if (idx < records.length - 1) { openReview(records[idx+1].id); }
-  else { closeReview(); const d = document.getElementById('doneBox'); d.textContent = '✅ 全件の確認が完了しました！'; d.style.display = ''; }
+  r.date=document.getElementById('r-date').value.replace(/-/g,'/');
+  r.store=document.getElementById('r-store').value;
+  r.kamoku=getKamoku('r');
+  r.amount=document.getElementById('r-amount').value;
+  r.invoice=(document.getElementById('r-invoice').value||'').trim();
+  const bikoRaw=document.getElementById('r-biko').value;
+  // 登録番号がまだ備考に入っていなければ追加
+  r.biko=isValidInvoice(r.invoice)&&!bikoRaw.includes(r.invoice)?(bikoRaw+' '+r.invoice).trim():bikoRaw;
+  r.taxcat=calcTaxCategory(document.getElementById('r-date').value,r.invoice,bikoRaw);
+  const idx=records.indexOf(r);
+  if(idx<records.length-1){openReview(records[idx+1].id);}
+  else{closeReview();const d=document.getElementById('doneBox');d.textContent='✅ 全件の確認が完了しました！';d.style.display='';}
   renderList();
 }
-function deleteReviewing() {
-  const idx = records.findIndex(x => x.id === reviewingId);
-  records = records.filter(x => x.id !== reviewingId);
-  document.getElementById('count').textContent = records.length;
-  if (records.length === 0) { closeReview(); } else { openReview(records[Math.min(idx, records.length-1)].id); }
+function deleteReviewing(){
+  const idx=records.findIndex(x=>x.id===reviewingId);
+  records=records.filter(x=>x.id!==reviewingId);
+  document.getElementById('count').textContent=records.length;
+  if(records.length===0){closeReview();}else{openReview(records[Math.min(idx,records.length-1)].id);}
   renderList();
 }
-function reviewPrev() { const idx = records.findIndex(x => x.id === reviewingId); if (idx > 0) openReview(records[idx-1].id); }
-function reviewNext() { const idx = records.findIndex(x => x.id === reviewingId); if (idx < records.length-1) openReview(records[idx+1].id); }
+function reviewPrev(){const idx=records.findIndex(x=>x.id===reviewingId);if(idx>0)openReview(records[idx-1].id);}
+function reviewNext(){const idx=records.findIndex(x=>x.id===reviewingId);if(idx<records.length-1)openReview(records[idx+1].id);}
 
-function openModal(src) { document.getElementById('modalImg').src = src; document.getElementById('modalOverlay').classList.add('open'); }
-function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); document.getElementById('modalImg').src = ''; }
+function openModal(src){document.getElementById('modalImg').src=src;document.getElementById('modalOverlay').classList.add('open');}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');document.getElementById('modalImg').src='';}
 
 // ===== リスト =====
-function removeRecord(id, e) {
-  e.stopPropagation();
-  records = records.filter(r => r.id !== id);
-  document.getElementById('count').textContent = records.length;
-  if (reviewingId === id) closeReview();
-  renderList();
-}
+function removeRecord(id,e){e.stopPropagation();records=records.filter(r=>r.id!==id);document.getElementById('count').textContent=records.length;if(reviewingId===id)closeReview();renderList();}
 function renderList() {
-  const el = document.getElementById('listContainer');
-  const exportRow = document.getElementById('exportRow');
-  if (records.length === 0) { el.innerHTML = '<div class="empty">まだ領収書が追加されていません</div>'; exportRow.style.display = 'none'; return; }
-  exportRow.style.display = 'flex';
-  el.innerHTML = '<div class="list-header"><span>発生日</span><span>取引先</span><span>勘定科目</span><span style="text-align:right">金額</span><span></span></div>' +
-    records.map(r =>
-      '<div class="list-row' + (r.id===reviewingId?' reviewing':'') + '" onclick="openReview('+r.id+')">' +
-      '<span>'+r.date+'</span><span>'+r.store+'</span>' +
-      '<span><span class="kamoku-badge">'+r.kamoku+'</span></span>' +
-      '<span style="text-align:right">¥'+Number(r.amount||0).toLocaleString()+'</span>' +
-      '<button class="btn" style="padding:4px 8px;font-size:12px" onclick="removeRecord('+r.id+',event)">×</button>' +
-      '</div>'
-    ).join('');
+  const el=document.getElementById('listContainer');
+  const exportRow=document.getElementById('exportRow');
+  if(records.length===0){el.innerHTML='<div class="empty">まだ領収書が追加されていません</div>';exportRow.style.display='none';return;}
+  exportRow.style.display='flex';
+  el.innerHTML='<div class="list-header"><span>発生日</span><span>取引先</span><span>勘定科目</span><span style="text-align:right">金額</span><span></span></div>'+
+    records.map(r=>'<div class="list-row'+(r.id===reviewingId?' reviewing':'')+'" onclick="openReview('+r.id+')"><span>'+r.date+'</span><span>'+r.store+'</span><span><span class="kamoku-badge">'+r.kamoku+'</span></span><span style="text-align:right">¥'+Number(r.amount||0).toLocaleString()+'</span><button class="btn" style="padding:4px 8px;font-size:12px" onclick="removeRecord('+r.id+',event)">×</button></div>').join('');
 }
 
-// ===== Excel出力（H列に税区分を追加） =====
+// ===== Excel出力 =====
 function exportExcel() {
-  const headers = ['収支区分','管理番号','発生日','決済期日','取引先','取引先コード','勘定科目','税区分','金額','税計算区分','税額','備考','品目','部門','メモタグ（複数指定可、カンマ区切り）','決済日','決済口座','決済金額'];
-  const rows = records.map(r => {
-    const row = new Array(18).fill('');
-    row[0] = '支出';
-    row[2] = r.date;
-    row[4] = r.store;
-    row[6] = r.kamoku;
-    row[7] = r.taxcat || '';       // H列：税区分
-    row[8] = Number(r.amount) || '';
-    row[11] = r.biko;
-    // 登録番号はメモタグ（O列）に追加
-    row[14] = r.invoice ? '登録番号:' + r.invoice : '';
+  const headers=['収支区分','管理番号','発生日','決済期日','取引先','取引先コード','勘定科目','税区分','金額','税計算区分','税額','備考','品目','部門','メモタグ（複数指定可、カンマ区切り）','決済日','決済口座','決済金額'];
+  const rows=records.map(r=>{
+    const row=new Array(18).fill('');
+    row[0]='支出';row[2]=r.date;row[4]=r.store;row[6]=r.kamoku;
+    row[7]=r.taxcat||'';
+    row[8]=Number(r.amount)||'';
+    row[11]=r.biko;
+    row[14]=r.invoice?'登録番号:'+r.invoice:'';
     return row;
   });
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  ws['!cols'] = [{wch:8},{wch:8},{wch:12},{wch:12},{wch:20},{wch:12},{wch:12},{wch:20},{wch:10},{wch:10},{wch:10},{wch:30},{wch:12},{wch:12},{wch:25},{wch:12},{wch:12},{wch:10}];
-  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-  XLSX.writeFile(wb, 'freee支出取引データ_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  ws['!cols']=[{wch:8},{wch:8},{wch:12},{wch:12},{wch:20},{wch:12},{wch:12},{wch:22},{wch:10},{wch:10},{wch:10},{wch:35},{wch:12},{wch:12},{wch:25},{wch:12},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws,'Sheet1');
+  XLSX.writeFile(wb,'freee支出取引データ_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 </script>
 </body>
