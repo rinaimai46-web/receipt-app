@@ -61,18 +61,31 @@
   .empty { text-align: center; padding: 40px; color: #bbb; font-size: 14px; }
   .export-row { display: flex; justify-content: flex-end; margin-top: 12px; }
   .date-hint { font-size: 11px; color: #aaa; margin-top: 3px; }
-
-  /* ① レビューパネル */
   .review-panel { background: #fff; border: 2px solid #1a1a1a; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
   .review-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
   .review-panel-header span { font-size: 14px; font-weight: 600; }
   .review-nav { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #888; }
   .review-nav button { padding: 4px 10px; border-radius: 6px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 13px; }
   .review-nav button:hover { background: #f5f5f5; }
-  .review-img { max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid #eee; display: block; margin: 10px auto; }
+
+  /* 画像モーダル */
+  .img-wrap { text-align: center; margin: 10px 0; }
+  .review-thumb { max-width: 100%; max-height: 220px; border-radius: 8px; border: 1px solid #eee; cursor: zoom-in; object-fit: contain; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-img { max-width: 95vw; max-height: 92vh; border-radius: 8px; object-fit: contain; }
+  .modal-close { position: fixed; top: 16px; right: 20px; color: #fff; font-size: 32px; cursor: pointer; background: none; border: none; line-height: 1; }
+  .pdf-placeholder { background: #f0f0f0; border-radius: 8px; padding: 24px; text-align: center; color: #888; font-size: 13px; margin: 10px 0; }
 </style>
 </head>
 <body>
+
+<!-- 画像拡大モーダル -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
+  <button class="modal-close" onclick="closeModal()">×</button>
+  <img class="modal-img" id="modalImg" src="" alt="">
+</div>
+
 <div class="header">
   <h1>領収書読み取り</h1>
   <span>freee Excel出力</span>
@@ -90,7 +103,6 @@
     <button class="tab" onclick="switchTab('list')">リスト（<span id="count">0</span>件）</button>
   </div>
 
-  <!-- 読み取りタブ -->
   <div id="tab-scan">
     <div class="drop-zone" id="dropZone" ondragover="onDrag(event,true)" ondragleave="onDrag(event,false)" ondrop="onDrop(event)">
       <input type="file" id="fileInput" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" multiple onchange="onFiles(this.files)">
@@ -107,7 +119,6 @@
     <div class="error-box" id="errorBox" style="display:none"></div>
     <div class="done-box" id="doneBox" style="display:none"></div>
 
-    <!-- 1枚確認フォーム -->
     <div id="resultSection" style="display:none">
       <div class="result-card">
         <div class="result-header">
@@ -151,10 +162,7 @@
     </div>
   </div>
 
-  <!-- リストタブ -->
   <div id="tab-list" style="display:none">
-
-    <!-- ① レビューパネル（リストの件をクリックで展開） -->
     <div id="reviewPanel" style="display:none">
       <div class="review-panel">
         <div class="review-panel-header">
@@ -166,7 +174,10 @@
             <button onclick="closeReview()" style="margin-left:8px;">閉じる</button>
           </div>
         </div>
-        <img id="reviewImg" class="review-img" style="display:none">
+
+        <!-- 画像エリア：タップで拡大 -->
+        <div class="img-wrap" id="reviewImgWrap"></div>
+
         <div class="field-grid" style="margin-top:10px;">
           <div class="field-item">
             <label>発生日（C列）</label>
@@ -212,7 +223,6 @@
 let records = [];
 let reviewingId = null;
 
-// ===== タブ =====
 function switchTab(tab) {
   document.getElementById('tab-scan').style.display = tab === 'scan' ? '' : 'none';
   document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
@@ -220,7 +230,6 @@ function switchTab(tab) {
   if (tab === 'list') renderList();
 }
 
-// ===== ドロップゾーン =====
 function onDrag(e, over) { e.preventDefault(); document.getElementById('dropZone').classList.toggle('dragging', over); }
 function onDrop(e) {
   e.preventDefault();
@@ -280,9 +289,16 @@ async function runBulk(files) {
     document.getElementById('progressBar').style.width = Math.round(i / total * 100) + '%';
     try {
       const result = await callApi(file);
-      // 画像のObjectURLも保持（レビュー時にプレビュー表示するため）
-      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
-      records.push({ id: Date.now() + i, date: result.date, store: result.store, kamoku: result.kamoku, amount: result.amount, biko: result.biko, previewUrl });
+      records.push({
+        id: Date.now() + i,
+        date: result.date,
+        store: result.store,
+        kamoku: result.kamoku,
+        amount: result.amount,
+        biko: result.biko,
+        previewDataUrl: result.previewDataUrl,  // ★ base64画像を保持
+        isPdf: result.isPdf
+      });
       document.getElementById('count').textContent = records.length;
       ok++;
     } catch(e) {
@@ -295,19 +311,24 @@ async function runBulk(files) {
   document.getElementById('statusBar').innerHTML = '';
   document.getElementById('progressWrap').style.display = 'none';
   document.getElementById('fileInput').value = '';
-  let msg = '✅ ' + ok + '枚の読み取りが完了！　リストタブで内容を確認・修正できます。';
+  let msg = '✅ ' + ok + '枚の読み取りが完了！　リストをタップして内容を確認・修正できます。';
   if (ng > 0) msg += '　⚠️ ' + ng + '枚でエラー：' + errs.join(' / ');
   document.getElementById('doneBox').textContent = msg;
   document.getElementById('doneBox').style.display = '';
-  setTimeout(() => { switchTab('list'); openReview(records[0].id); }, 800);
+  setTimeout(() => { switchTab('list'); openReview(records[records.length - ok].id); }, 800);
 }
 
 // ===== API呼び出し =====
 async function callApi(file) {
   const apiKey = document.getElementById('apiKey').value.trim();
   if (!apiKey) throw new Error('APIキーを入力してください。');
-  const base64 = await fileToBase64(file);
+
   const isPdf = file.type === 'application/pdf';
+
+  // ★ 画像はbase64変換時にデータURLとして保持
+  const base64 = await fileToBase64(file);
+  const previewDataUrl = !isPdf ? 'data:image/jpeg;base64,' + base64 : null;
+
   const contentBlock = isPdf
     ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
     : { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } };
@@ -352,11 +373,9 @@ async function callApi(file) {
   let parsed;
   try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); } catch { throw new Error('AIの応答を解析できませんでした。'); }
 
-  // ② 日付の正規化
   let d = normalizeDate(parsed.date || '');
   if (d) { const y = parseInt(d.split('/')[0]); if (y < 2020 || y > 2030) d = '2026/' + d.split('/')[1] + '/' + d.split('/')[2]; }
 
-  // 発生日（月末）
   let dateForC = '';
   if (d && /^\d{4}\/\d{2}\/\d{2}$/.test(d)) {
     const [y, m] = d.split('/').map(Number);
@@ -368,12 +387,11 @@ async function callApi(file) {
     dateForC = y + '/' + String(m).padStart(2,'0') + '/' + String(new Date(y, m, 0).getDate()).padStart(2,'0');
   }
 
-  // ② 備考欄：「領収書の実日付 摘要」を正しく生成
   const bikoDate = d || dateForC;
   const bikoItems = parsed.items || '';
   const biko = bikoDate && bikoItems ? bikoDate + ' ' + bikoItems : bikoDate || bikoItems;
 
-  return { date: dateForC, store: parsed.store || '', kamoku: guessKamoku(parsed.items, parsed.amount), amount: parsed.amount || '', biko, confidence: parsed.confidence || 'medium' };
+  return { date: dateForC, store: parsed.store || '', kamoku: guessKamoku(parsed.items, parsed.amount), amount: parsed.amount || '', biko, confidence: parsed.confidence || 'medium', previewDataUrl, isPdf };
 }
 
 // ===== ユーティリティ =====
@@ -431,7 +449,17 @@ function fillForm(result) {
 }
 function addToList() {
   const raw = document.getElementById('f-date').value;
-  records.push({ id: Date.now(), date: raw.replace(/-/g,'/'), store: document.getElementById('f-store').value, kamoku: document.getElementById('f-kamoku').value, amount: document.getElementById('f-amount').value, biko: document.getElementById('f-biko').value, previewUrl: null });
+  const previewSrc = document.getElementById('preview').src || null;
+  records.push({
+    id: Date.now(),
+    date: raw.replace(/-/g,'/'),
+    store: document.getElementById('f-store').value,
+    kamoku: document.getElementById('f-kamoku').value,
+    amount: document.getElementById('f-amount').value,
+    biko: document.getElementById('f-biko').value,
+    previewDataUrl: previewSrc && previewSrc.startsWith('blob:') ? null : previewSrc,
+    isPdf: false
+  });
   document.getElementById('count').textContent = records.length;
   resetScan(); switchTab('list');
 }
@@ -444,6 +472,7 @@ function resetScan() {
   document.getElementById('errorBox').style.display = 'none';
   document.getElementById('doneBox').style.display = 'none';
   document.getElementById('preview').style.display = 'none';
+  document.getElementById('preview').src = '';
   document.getElementById('dropContent').style.display = '';
   document.getElementById('dropContent').innerHTML = '<div class="drop-icon">🧾</div><p>複数枚まとめてアップロードできます</p><small>JPG・PNG・PDF対応</small><br><button class="upload-btn" onclick="document.getElementById(\'fileInput\').click()">ファイルを選択</button>';
   document.getElementById('statusBar').innerHTML = '';
@@ -454,7 +483,7 @@ function showError(msg) {
   document.getElementById('errorBox').innerHTML = '<strong>エラー:</strong> ' + msg + '<br><small style="color:#e57373">・APIキーが正しいか確認してください<br>・ファイル形式: JPG・PNG・PDF のみ対応</small>';
 }
 
-// ===== ① レビュー機能 =====
+// ===== レビュー機能 =====
 function openReview(id) {
   reviewingId = id;
   const r = records.find(x => x.id === id);
@@ -466,8 +495,17 @@ function openReview(id) {
   document.getElementById('r-kamoku').value = r.kamoku;
   document.getElementById('r-amount').value = r.amount;
   document.getElementById('r-biko').value = r.biko;
-  const img = document.getElementById('reviewImg');
-  if (r.previewUrl) { img.src = r.previewUrl; img.style.display = 'block'; } else { img.style.display = 'none'; }
+
+  // ★ 画像表示エリアを更新
+  const wrap = document.getElementById('reviewImgWrap');
+  if (r.previewDataUrl) {
+    wrap.innerHTML = '<img class="review-thumb" src="' + r.previewDataUrl + '" alt="領収書" onclick="openModal(\'' + r.previewDataUrl + '\')" title="タップで拡大">';
+  } else if (r.isPdf) {
+    wrap.innerHTML = '<div class="pdf-placeholder">📄 PDFファイル（プレビュー非対応）</div>';
+  } else {
+    wrap.innerHTML = '';
+  }
+
   document.getElementById('reviewPanel').style.display = '';
   renderList();
 }
@@ -484,14 +522,14 @@ function saveReview() {
   r.kamoku = document.getElementById('r-kamoku').value;
   r.amount = document.getElementById('r-amount').value;
   r.biko = document.getElementById('r-biko').value;
-  // 次の件へ
   const idx = records.indexOf(r);
   if (idx < records.length - 1) {
     openReview(records[idx+1].id);
   } else {
     closeReview();
-    document.getElementById('doneBox').textContent = '✅ 全件の確認が完了しました！';
-    document.getElementById('doneBox').style.display = '';
+    const d = document.getElementById('doneBox');
+    d.textContent = '✅ 全件の確認が完了しました！';
+    d.style.display = '';
   }
   renderList();
 }
@@ -503,17 +541,27 @@ function deleteReviewing() {
   else { openReview(records[Math.min(idx, records.length-1)].id); }
   renderList();
 }
-function reviewPrev() {
-  const idx = records.findIndex(x => x.id === reviewingId);
-  if (idx > 0) openReview(records[idx-1].id);
+function reviewPrev() { const idx = records.findIndex(x => x.id === reviewingId); if (idx > 0) openReview(records[idx-1].id); }
+function reviewNext() { const idx = records.findIndex(x => x.id === reviewingId); if (idx < records.length-1) openReview(records[idx+1].id); }
+
+// ===== 画像モーダル =====
+function openModal(src) {
+  document.getElementById('modalImg').src = src;
+  document.getElementById('modalOverlay').classList.add('open');
 }
-function reviewNext() {
-  const idx = records.findIndex(x => x.id === reviewingId);
-  if (idx < records.length-1) openReview(records[idx+1].id);
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.getElementById('modalImg').src = '';
 }
 
 // ===== リスト =====
-function removeRecord(id, e) { e.stopPropagation(); records = records.filter(r => r.id !== id); document.getElementById('count').textContent = records.length; if (reviewingId === id) closeReview(); renderList(); }
+function removeRecord(id, e) {
+  e.stopPropagation();
+  records = records.filter(r => r.id !== id);
+  document.getElementById('count').textContent = records.length;
+  if (reviewingId === id) closeReview();
+  renderList();
+}
 function renderList() {
   const el = document.getElementById('listContainer');
   const exportRow = document.getElementById('exportRow');
