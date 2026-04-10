@@ -79,7 +79,7 @@
   .kamoku-other { flex: 1; display: none; }
   .invoice-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #e3f2fd; color: #1565c0; margin-top: 4px; }
   .invoice-badge.none { background: #f5f5f5; color: #999; }
-  .tax-hint { font-size: 11px; color: #7b1fa2; margin-top: 4px; background: #f3e5f5; padding: 3px 8px; border-radius: 4px; display: inline-block; }
+  .taxcat-select { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; background: #f0f4ff; color: #1a237e; }
 </style>
 </head>
 <body>
@@ -131,7 +131,7 @@
         <div class="field-grid">
           <div class="field-item">
             <label>発生日（C列）　※ 計上月の月末日を選択</label>
-            <input type="date" id="f-date" onchange="updateTaxHint('f')">
+            <input type="date" id="f-date" onchange="autoSetTaxcat('f')">
             <p class="date-hint">カレンダーで月末日を指定してください</p>
           </div>
           <div class="field-item">
@@ -158,7 +158,7 @@
           </div>
           <div class="field-item full">
             <label>適格請求書登録番号（T+13桁）　※ AIが自動読み取り</label>
-            <input type="text" id="f-invoice" placeholder="T1234567890123" oninput="updateTaxHint('f')" maxlength="14">
+            <input type="text" id="f-invoice" placeholder="T1234567890123" oninput="autoSetTaxcat('f')" maxlength="14">
             <div id="f-invoice-badge"></div>
           </div>
           <div class="field-item full">
@@ -166,9 +166,27 @@
             <input type="text" id="f-biko" placeholder="2026/3/4 食材費等 T1234567890123">
           </div>
           <div class="field-item full">
-            <label>税区分（H列）　※ 自動判定</label>
-            <input type="text" id="f-taxcat" readonly style="background:#f0f4ff;color:#1a237e;font-size:13px;">
-            <div id="f-tax-hint"></div>
+            <label>税区分（H列）　※ 自動判定・手動変更可</label>
+            <select id="f-taxcat" class="taxcat-select">
+              <option value="">-- 選択してください --</option>
+              <optgroup label="● 適格請求書あり（フル控除）">
+                <option value="課対仕入10%">課対仕入10%</option>
+                <option value="課対仕入8%（軽）">課対仕入8%（軽）</option>
+              </optgroup>
+              <optgroup label="● 経過措置：2023/10/1〜2026/9/30（控除80%）">
+                <option value="課対仕入（控80）10%">課対仕入（控80）10%</option>
+                <option value="課対仕入（控80）8%（軽）">課対仕入（控80）8%（軽）</option>
+              </optgroup>
+              <optgroup label="● 経過措置：2026/10/1〜2029/9/30（控除50%）">
+                <option value="課対仕入（控50）10%">課対仕入（控50）10%</option>
+                <option value="課対仕入（控50）8%（軽）">課対仕入（控50）8%（軽）</option>
+              </optgroup>
+              <optgroup label="● その他">
+                <option value="対象外">対象外</option>
+                <option value="不課税">不課税</option>
+                <option value="免税">免税</option>
+              </optgroup>
+            </select>
           </div>
         </div>
       </div>
@@ -195,7 +213,7 @@
         <div class="field-grid" style="margin-top:10px;">
           <div class="field-item">
             <label>発生日（C列）</label>
-            <input type="date" id="r-date" onchange="updateTaxHint('r')">
+            <input type="date" id="r-date" onchange="autoSetTaxcat('r')">
           </div>
           <div class="field-item">
             <label>取引先（E列）</label>
@@ -220,7 +238,7 @@
           </div>
           <div class="field-item full">
             <label>適格請求書登録番号（T+13桁）</label>
-            <input type="text" id="r-invoice" placeholder="T1234567890123" oninput="updateTaxHint('r')" maxlength="14">
+            <input type="text" id="r-invoice" placeholder="T1234567890123" oninput="autoSetTaxcat('r')" maxlength="14">
             <div id="r-invoice-badge"></div>
           </div>
           <div class="field-item full">
@@ -228,9 +246,27 @@
             <input type="text" id="r-biko">
           </div>
           <div class="field-item full">
-            <label>税区分（H列）　※ 自動判定</label>
-            <input type="text" id="r-taxcat" readonly style="background:#f0f4ff;color:#1a237e;font-size:13px;">
-            <div id="r-tax-hint"></div>
+            <label>税区分（H列）　※ 自動判定・手動変更可</label>
+            <select id="r-taxcat" class="taxcat-select">
+              <option value="">-- 選択してください --</option>
+              <optgroup label="● 適格請求書あり（フル控除）">
+                <option value="課対仕入10%">課対仕入10%</option>
+                <option value="課対仕入8%（軽）">課対仕入8%（軽）</option>
+              </optgroup>
+              <optgroup label="● 経過措置：2023/10/1〜2026/9/30（控除80%）">
+                <option value="課対仕入（控80）10%">課対仕入（控80）10%</option>
+                <option value="課対仕入（控80）8%（軽）">課対仕入（控80）8%（軽）</option>
+              </optgroup>
+              <optgroup label="● 経過措置：2026/10/1〜2029/9/30（控除50%）">
+                <option value="課対仕入（控50）10%">課対仕入（控50）10%</option>
+                <option value="課対仕入（控50）8%（軽）">課対仕入（控50）8%（軽）</option>
+              </optgroup>
+              <optgroup label="● その他">
+                <option value="対象外">対象外</option>
+                <option value="不課税">不課税</option>
+                <option value="免税">免税</option>
+              </optgroup>
+            </select>
           </div>
         </div>
         <div class="action-row">
@@ -268,7 +304,7 @@ function getKamoku(p) {
 function isValidInvoice(v) { return /^T\d{13}$/.test((v||'').trim()); }
 function isReducedTax(items) { return /食材|食品|食料|飲料|軽減|8%/.test(items||''); }
 
-// ★ 修正：登録番号あり→適格（課税仕入）、なし→経過措置
+// ★ 修正：すべて「課対仕入」に統一
 function calcTaxCategory(dateStr, invoiceNo, items) {
   if (!dateStr) return '';
   const d = new Date(dateStr.replace(/\//g,'-'));
@@ -280,11 +316,11 @@ function calcTaxCategory(dateStr, invoiceNo, items) {
   const d20291001 = new Date('2029-10-01');
 
   if (hasInvoice) {
-    // 適格請求書あり → 常にフル控除（課税仕入）
-    return reduced ? '課税仕入8%（軽）' : '課税仕入10%';
+    // 適格請求書あり → フル控除（課対仕入）
+    return reduced ? '課対仕入8%（軽）' : '課対仕入10%';
   } else {
-    // 適格請求書なし → 経過措置（発生日で控除割合が変わる）
-    if (d < d20231001) return reduced ? '課税仕入8%（軽）' : '課税仕入10%';
+    // 適格請求書なし → 経過措置
+    if (d < d20231001) return reduced ? '課対仕入8%（軽）' : '課対仕入10%';
     if (d < d20261001) return reduced ? '課対仕入（控80）8%（軽）' : '課対仕入（控80）10%';
     if (d < d20291001) return reduced ? '課対仕入（控50）8%（軽）' : '課対仕入（控50）10%';
     return '対象外';
@@ -296,21 +332,19 @@ function buildBiko(dateStr, items, invoice) {
   return parts.join(' ');
 }
 
-function updateTaxHint(p) {
+function autoSetTaxcat(p) {
   const dateVal = document.getElementById(p+'-date').value;
   const invoiceVal = (document.getElementById(p+'-invoice').value||'').trim();
   const bikoVal = (document.getElementById(p+'-biko')||{value:''}).value;
   const taxcat = calcTaxCategory(dateVal, invoiceVal, bikoVal);
-  const taxcatEl = document.getElementById(p+'-taxcat');
-  if (taxcatEl) taxcatEl.value = taxcat;
+  const sel = document.getElementById(p+'-taxcat');
+  if (taxcat && sel) sel.value = taxcat;
   const badgeEl = document.getElementById(p+'-invoice-badge');
   if (badgeEl) {
-    if (isValidInvoice(invoiceVal)) badgeEl.innerHTML = '<span class="invoice-badge">✅ 適格請求書あり → 課税仕入（フル控除）</span>';
+    if (isValidInvoice(invoiceVal)) badgeEl.innerHTML = '<span class="invoice-badge">✅ 適格請求書あり → 課対仕入（フル控除）</span>';
     else if (invoiceVal) badgeEl.innerHTML = '<span class="invoice-badge none">⚠️ 形式が正しくありません（T+13桁）</span>';
     else badgeEl.innerHTML = '<span class="invoice-badge none">登録番号なし → 経過措置を適用</span>';
   }
-  const hintEl = document.getElementById(p+'-tax-hint');
-  if (hintEl) hintEl.innerHTML = taxcat ? '<span class="tax-hint">→ H列：'+taxcat+'</span>' : '';
 }
 
 function switchTab(tab) {
@@ -377,8 +411,7 @@ async function runBulk(files) {
 
     if (result) {
       records.push({
-        id: genId(),
-        date: result.date, store: result.store, kamoku: result.kamoku,
+        id: genId(), date: result.date, store: result.store, kamoku: result.kamoku,
         amount: result.amount, biko: result.biko, invoice: result.invoice,
         taxcat: result.taxcat, previewDataUrl: result.previewDataUrl,
         pdfDataUrl: result.pdfDataUrl, isPdf: result.isPdf
@@ -414,7 +447,7 @@ async function callApi(file) {
     ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}}
     : {type:'image',source:{type:'base64',media_type:'image/jpeg',data:base64}};
 
-  const systemPrompt = `あなたは領収書から情報を抽出する専門家です。
+  const systemPrompt = `あなたは領収書・レシートから情報を抽出する経理の専門家です。
 必ず以下のJSONのみを返答してください（説明・コードブロック・前置き一切不要）:
 {"date":"YYYY/MM/DD","store":"店名または会社名","amount":"税込合計を数字のみ","items":"品目の要約","invoice":"T+13桁またはnull","confidence":"high|medium|low"}
 
@@ -427,9 +460,16 @@ async function callApi(file) {
 5. 複数日付がある場合：「日付」「発行日」「領収日」ラベル優先
 6. 読み取れない場合のみ空文字
 
-【金額の抽出ルール】
-- 「合計」「税込合計」「お買い上げ合計」「total」が最優先
-- 税込金額を使用、数字のみ（カンマ・円・¥なし）
+【金額の抽出ルール】※精度最優先
+以下の優先順位で税込合計金額を探してください：
+1. 「税込合計」「合計金額（税込）」「お支払合計」「お会計」「合 計」「TOTAL」と書かれた金額を最優先
+2. 次に「合計」「小計+消費税」の合算値
+3. レシートの最下部に最も大きく表示された金額
+4. 「税抜合計」や「小計」のみの場合は消費税を加算して税込金額を計算
+5. 複数の合計金額がある場合は最大の金額（最終的なお支払い金額）を使用
+- 必ず数字のみ（カンマ・円・¥記号・スペースなし）
+- ポイント利用や割引後の実際のお支払い金額を使用
+- 読み取れない場合は空文字
 
 【品目の要約ルール】
 - 食品・食料品・食材・飲料・お菓子・弁当 → "食材費等"
@@ -440,19 +480,19 @@ async function callApi(file) {
 
 【適格請求書登録番号の抽出ルール】
 - 「T」から始まる13桁の数字を探す（例：T1234567890123）
-- 「登録番号」「適格請求書」「インボイス番号」のラベルの近くにある番号を優先
+- 「登録番号」「適格請求書」「インボイス番号」「登録No.」のラベルの近くにある番号を優先
 - 見つかった場合："T1234567890123" の形式で返す
 - 見つからない場合：null を返す
 
 【confidenceの判定】
-- high: 日付・金額ともに明確
+- high: 日付・金額ともに明確に読み取れた
 - medium: どちらか一方が不明瞭
 - low: 両方不明瞭または推定が多い`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages:[{role:'user',content:[contentBlock,{type:'text',text:'領収書の情報を抽出してください。適格請求書登録番号（T+13桁）があれば必ず読み取ってください。日付は2026年を基準年として処理してください。'}]}]})
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages:[{role:'user',content:[contentBlock,{type:'text',text:'この領収書・レシートから情報を正確に抽出してください。特に税込合計金額と適格請求書登録番号（T+13桁）に注意してください。日付は2026年を基準年として処理してください。'}]}]})
   });
   if (!res.ok) { const err=await res.json().catch(()=>({})); throw new Error(err?.error?.message||'HTTPエラー: '+res.status); }
   const data = await res.json();
@@ -528,10 +568,11 @@ function fillForm(result) {
   if(opts.includes(result.kamoku)){sel.value=result.kamoku;document.getElementById('f-kamoku-other').style.display='none';}
   else{sel.value='__other__';document.getElementById('f-kamoku-other').style.display='block';document.getElementById('f-kamoku-other').value=result.kamoku;}
   document.getElementById('kamokuHint').textContent=HINTS[result.kamoku]||'';
+  document.getElementById('f-taxcat').value=result.taxcat||'';
   const tag=document.getElementById('confidenceTag');
   tag.textContent=result.confidence==='low'?'要確認':'読み取り完了';
   tag.className=result.confidence==='low'?'badge warn':'badge';
-  updateTaxHint('f');
+  autoSetTaxcat('f');
 }
 
 function addToList() {
@@ -539,7 +580,7 @@ function addToList() {
   const invoice=(document.getElementById('f-invoice').value||'').trim();
   const bikoRaw=document.getElementById('f-biko').value;
   const biko=isValidInvoice(invoice)&&!bikoRaw.includes(invoice)?(bikoRaw+' '+invoice).trim():bikoRaw;
-  const taxcat=calcTaxCategory(raw,invoice,bikoRaw);
+  const taxcat=document.getElementById('f-taxcat').value;
   records.push({id:genId(),date:raw.replace(/-/g,'/'),store:document.getElementById('f-store').value,kamoku:getKamoku('f'),amount:document.getElementById('f-amount').value,biko,invoice,taxcat,previewDataUrl:null,pdfDataUrl:null,isPdf:false});
   document.getElementById('count').textContent=records.length;
   resetScan(); switchTab('list');
@@ -555,7 +596,6 @@ function resetScan() {
   document.getElementById('kamokuHint').textContent='';
   document.getElementById('f-taxcat').value='';
   document.getElementById('f-invoice-badge').innerHTML='';
-  document.getElementById('f-tax-hint').innerHTML='';
   document.getElementById('resultSection').style.display='none';
   document.getElementById('errorBox').style.display='none';
   document.getElementById('doneBox').style.display='none';
@@ -580,6 +620,7 @@ function openReview(id) {
   document.getElementById('r-amount').value=r.amount;
   document.getElementById('r-biko').value=r.biko;
   document.getElementById('r-invoice').value=r.invoice||'';
+  document.getElementById('r-taxcat').value=r.taxcat||'';
   const sel=document.getElementById('r-kamoku');
   const opts=Array.from(sel.options).map(o=>o.value);
   if(opts.includes(r.kamoku)){sel.value=r.kamoku;document.getElementById('r-kamoku-other').style.display='none';}
@@ -588,7 +629,11 @@ function openReview(id) {
   if(r.previewDataUrl){wrap.innerHTML='<img class="review-thumb" src="'+r.previewDataUrl+'" alt="領収書" onclick="openModal(\''+r.previewDataUrl+'\')" title="タップで拡大">';}
   else if(r.isPdf&&r.pdfDataUrl){wrap.innerHTML='<iframe class="pdf-preview" src="'+r.pdfDataUrl+'" title="領収書PDF"></iframe>';}
   else{wrap.innerHTML='';}
-  updateTaxHint('r');
+  const badgeEl=document.getElementById('r-invoice-badge');
+  if(badgeEl){
+    if(isValidInvoice(r.invoice||'')) badgeEl.innerHTML='<span class="invoice-badge">✅ 適格請求書あり → 課対仕入（フル控除）</span>';
+    else badgeEl.innerHTML='<span class="invoice-badge none">登録番号なし → 経過措置を適用</span>';
+  }
   document.getElementById('reviewPanel').style.display='';
   renderList();
 }
@@ -603,7 +648,7 @@ function saveReview() {
   r.invoice=(document.getElementById('r-invoice').value||'').trim();
   const bikoRaw=document.getElementById('r-biko').value;
   r.biko=isValidInvoice(r.invoice)&&!bikoRaw.includes(r.invoice)?(bikoRaw+' '+r.invoice).trim():bikoRaw;
-  r.taxcat=calcTaxCategory(document.getElementById('r-date').value,r.invoice,bikoRaw);
+  r.taxcat=document.getElementById('r-taxcat').value;
   const idx=records.indexOf(r);
   if(idx<records.length-1){openReview(records[idx+1].id);}
   else{closeReview();const d=document.getElementById('doneBox');d.textContent='✅ 全件の確認が完了しました！';d.style.display='';}
@@ -632,17 +677,32 @@ function renderList() {
 }
 
 function exportExcel() {
-  const headers=['収支区分','管理番号','発生日','決済期日','取引先','取引先コード','勘定科目','税区分','金額','税計算区分','税額','備考','品目','部門','メモタグ（複数指定可、カンマ区切り）','決済日','決済口座','決済金額'];
-  const rows=records.map(r=>{
-    const row=new Array(18).fill('');
-    row[0]='支出'; row[2]=r.date; row[4]=r.store; row[6]=r.kamoku;
-    row[7]=r.taxcat||''; row[8]=Number(r.amount)||''; row[11]=r.biko;
-    row[14]=r.invoice?'登録番号:'+r.invoice:'';
+  const headers = [
+    '収支区分','管理番号','発生日','決済期日','取引先','取引先コード',
+    '勘定科目','税区分','金額','税計算区分','税額','備考',
+    '品目','部門','メモタグ（複数指定可、カンマ区切り）','決済日','決済口座','決済金額',
+    '','適格請求書番号'
+  ];
+  const rows = records.map(r => {
+    const row = new Array(20).fill('');
+    row[0]  = '支出';
+    row[2]  = r.date;
+    row[4]  = r.store;
+    row[6]  = r.kamoku;
+    row[7]  = r.taxcat||'';
+    row[8]  = Number(r.amount)||'';
+    row[11] = r.biko;
+    row[19] = r.invoice||'';
     return row;
   });
-  const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
-  ws['!cols']=[{wch:8},{wch:8},{wch:12},{wch:12},{wch:20},{wch:12},{wch:12},{wch:22},{wch:10},{wch:10},{wch:10},{wch:35},{wch:12},{wch:12},{wch:25},{wch:12},{wch:12},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers,...rows]);
+  ws['!cols'] = [
+    {wch:8},{wch:8},{wch:12},{wch:12},{wch:20},{wch:12},
+    {wch:12},{wch:22},{wch:10},{wch:10},{wch:10},{wch:35},
+    {wch:12},{wch:12},{wch:25},{wch:12},{wch:12},{wch:10},
+    {wch:5},{wch:18}
+  ];
   XLSX.utils.book_append_sheet(wb,ws,'Sheet1');
   XLSX.writeFile(wb,'freee支出取引データ_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
