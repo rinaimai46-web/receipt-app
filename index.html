@@ -131,12 +131,13 @@
         <div class="field-grid">
           <div class="field-item">
             <label>発生日（C列）　※ 計上月の月末日を選択</label>
-            <input type="date" id="f-date" onchange="autoSetTaxcat('f')">
+            <input type="date" id="f-date" onchange="autoSetTaxcat('f'); rebuildBiko('f');">
             <p class="date-hint">カレンダーで月末日を指定してください</p>
           </div>
           <div class="field-item">
             <label>取引先（E列）</label>
-            <input type="text" id="f-store" placeholder="会社名・店名">
+            <!-- ★ oninput で備考欄を自動更新 -->
+            <input type="text" id="f-store" placeholder="会社名・店名" oninput="rebuildBiko('f')">
           </div>
           <div class="field-item">
             <label>勘定科目（G列）</label>
@@ -158,12 +159,13 @@
           </div>
           <div class="field-item full">
             <label>適格請求書登録番号（T+13桁）　※ AIが自動読み取り</label>
-            <input type="text" id="f-invoice" placeholder="T1234567890123" oninput="autoSetTaxcat('f')" maxlength="14">
+            <input type="text" id="f-invoice" placeholder="T1234567890123" oninput="autoSetTaxcat('f'); rebuildBiko('f');" maxlength="14">
             <div id="f-invoice-badge"></div>
           </div>
           <div class="field-item full">
-            <label>備考（L列）　形式：領収書の日付 摘要 登録番号　例）2026/3/4 食材費等 T1234567890123</label>
-            <input type="text" id="f-biko" placeholder="2026/3/4 食材費等 T1234567890123">
+            <!-- ★ 形式：日付 取引先名 内容 登録番号 -->
+            <label>備考（L列）　形式：日付 取引先名 内容 登録番号　※ 取引先・日付変更で自動更新</label>
+            <input type="text" id="f-biko" placeholder="2026/3/4 セブンイレブン 食材費等 T1234567890123">
           </div>
           <div class="field-item full">
             <label>税区分（H列）　※ 自動判定・手動変更可</label>
@@ -213,11 +215,12 @@
         <div class="field-grid" style="margin-top:10px;">
           <div class="field-item">
             <label>発生日（C列）</label>
-            <input type="date" id="r-date" onchange="autoSetTaxcat('r')">
+            <input type="date" id="r-date" onchange="autoSetTaxcat('r'); rebuildBiko('r');">
           </div>
           <div class="field-item">
             <label>取引先（E列）</label>
-            <input type="text" id="r-store">
+            <!-- ★ oninput で備考欄を自動更新 -->
+            <input type="text" id="r-store" oninput="rebuildBiko('r')">
           </div>
           <div class="field-item">
             <label>勘定科目（G列）</label>
@@ -238,11 +241,11 @@
           </div>
           <div class="field-item full">
             <label>適格請求書登録番号（T+13桁）</label>
-            <input type="text" id="r-invoice" placeholder="T1234567890123" oninput="autoSetTaxcat('r')" maxlength="14">
+            <input type="text" id="r-invoice" placeholder="T1234567890123" oninput="autoSetTaxcat('r'); rebuildBiko('r');" maxlength="14">
             <div id="r-invoice-badge"></div>
           </div>
           <div class="field-item full">
-            <label>備考（L列）</label>
+            <label>備考（L列）　※ 取引先・日付変更で自動更新</label>
             <input type="text" id="r-biko">
           </div>
           <div class="field-item full">
@@ -286,6 +289,10 @@
 let records = [];
 let reviewingId = null;
 
+// 各レコードの「生データ」を保持（日付・取引先・内容・登録番号）
+// これをもとに備考欄を自動生成する
+let bikoData = { f: { date:'', store:'', items:'', invoice:'' }, r: { date:'', store:'', items:'', invoice:'' } };
+
 function genId() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
@@ -304,7 +311,6 @@ function getKamoku(p) {
 function isValidInvoice(v) { return /^T\d{13}$/.test((v||'').trim()); }
 function isReducedTax(items) { return /食材|食品|食料|飲料|軽減|8%/.test(items||''); }
 
-// ★ 修正：すべて「課対仕入」に統一
 function calcTaxCategory(dateStr, invoiceNo, items) {
   if (!dateStr) return '';
   const d = new Date(dateStr.replace(/\//g,'-'));
@@ -314,12 +320,9 @@ function calcTaxCategory(dateStr, invoiceNo, items) {
   const d20231001 = new Date('2023-10-01');
   const d20261001 = new Date('2026-10-01');
   const d20291001 = new Date('2029-10-01');
-
   if (hasInvoice) {
-    // 適格請求書あり → フル控除（課対仕入）
     return reduced ? '課対仕入8%（軽）' : '課対仕入10%';
   } else {
-    // 適格請求書なし → 経過措置
     if (d < d20231001) return reduced ? '課対仕入8%（軽）' : '課対仕入10%';
     if (d < d20261001) return reduced ? '課対仕入（控80）8%（軽）' : '課対仕入（控80）10%';
     if (d < d20291001) return reduced ? '課対仕入（控50）8%（軽）' : '課対仕入（控50）10%';
@@ -327,16 +330,35 @@ function calcTaxCategory(dateStr, invoiceNo, items) {
   }
 }
 
-function buildBiko(dateStr, items, invoice) {
-  const parts = [dateStr, items, isValidInvoice(invoice) ? invoice : ''].filter(Boolean);
+// ★ 備考欄を「日付 取引先名 内容 登録番号」で自動生成
+function buildBiko(dateStr, store, items, invoice) {
+  const parts = [
+    dateStr || '',
+    store || '',
+    items || '',
+    isValidInvoice(invoice) ? invoice : ''
+  ].filter(Boolean);
   return parts.join(' ');
+}
+
+// ★ 取引先・日付・登録番号が変わったら備考欄を自動更新
+function rebuildBiko(p) {
+  const dateRaw = document.getElementById(p+'-date').value; // YYYY-MM-DD
+  const dateDisp = dateRaw ? dateRaw.replace(/-/g,'/') : '';
+  // 領収書の実日付（bikoDataに保持）
+  const receiptDate = bikoData[p].date || dateDisp;
+  const store = document.getElementById(p+'-store').value;
+  const items = bikoData[p].items || '';
+  const invoice = (document.getElementById(p+'-invoice').value||'').trim();
+  const biko = buildBiko(receiptDate, store, items, invoice);
+  document.getElementById(p+'-biko').value = biko;
 }
 
 function autoSetTaxcat(p) {
   const dateVal = document.getElementById(p+'-date').value;
   const invoiceVal = (document.getElementById(p+'-invoice').value||'').trim();
-  const bikoVal = (document.getElementById(p+'-biko')||{value:''}).value;
-  const taxcat = calcTaxCategory(dateVal, invoiceVal, bikoVal);
+  const items = bikoData[p].items || '';
+  const taxcat = calcTaxCategory(dateVal, invoiceVal, items);
   const sel = document.getElementById(p+'-taxcat');
   if (taxcat && sel) sel.value = taxcat;
   const badgeEl = document.getElementById(p+'-invoice-badge');
@@ -394,13 +416,10 @@ async function runBulk(files) {
     const file = files[i];
     document.getElementById('statusBar').innerHTML='<div class="spinner"></div>'+total+'枚中 '+(i+1)+'枚目：'+file.name;
     document.getElementById('progressBar').style.width=Math.round(i/total*100)+'%';
-
     let result=null, lastError=null;
     for (let retry=0; retry<3; retry++) {
-      try {
-        result = await callApi(file);
-        break;
-      } catch(e) {
+      try { result = await callApi(file); break; }
+      catch(e) {
         lastError = e;
         if (retry<2) {
           document.getElementById('statusBar').innerHTML='<div class="spinner"></div>'+total+'枚中 '+(i+1)+'枚目：リトライ中 ('+(retry+1)+'/3)...';
@@ -408,14 +427,8 @@ async function runBulk(files) {
         }
       }
     }
-
     if (result) {
-      records.push({
-        id: genId(), date: result.date, store: result.store, kamoku: result.kamoku,
-        amount: result.amount, biko: result.biko, invoice: result.invoice,
-        taxcat: result.taxcat, previewDataUrl: result.previewDataUrl,
-        pdfDataUrl: result.pdfDataUrl, isPdf: result.isPdf
-      });
+      records.push({ id:genId(), date:result.date, store:result.store, kamoku:result.kamoku, amount:result.amount, biko:result.biko, invoice:result.invoice, taxcat:result.taxcat, receiptDate:result.receiptDate, items:result.items, previewDataUrl:result.previewDataUrl, pdfDataUrl:result.pdfDataUrl, isPdf:result.isPdf });
       document.getElementById('count').textContent = records.length;
       ok++;
     } else {
@@ -461,14 +474,13 @@ async function callApi(file) {
 6. 読み取れない場合のみ空文字
 
 【金額の抽出ルール】※精度最優先
-以下の優先順位で税込合計金額を探してください：
-1. 「税込合計」「合計金額（税込）」「お支払合計」「お会計」「合 計」「TOTAL」と書かれた金額を最優先
-2. 次に「合計」「小計+消費税」の合算値
-3. レシートの最下部に最も大きく表示された金額
-4. 「税抜合計」や「小計」のみの場合は消費税を加算して税込金額を計算
-5. 複数の合計金額がある場合は最大の金額（最終的なお支払い金額）を使用
-- 必ず数字のみ（カンマ・円・¥記号・スペースなし）
-- ポイント利用や割引後の実際のお支払い金額を使用
+1. 「税込合計」「合計金額（税込）」「お支払合計」「お会計」「合 計」「TOTAL」を最優先
+2. 「合計」「小計+消費税」の合算値
+3. レシート最下部の最も大きい金額
+4. 税抜のみの場合は消費税を加算
+5. 複数ある場合は最終的なお支払い金額
+- 数字のみ（カンマ・円・¥なし）
+- ポイント割引後の実際のお支払い金額
 - 読み取れない場合は空文字
 
 【品目の要約ルール】
@@ -513,10 +525,12 @@ async function callApi(file) {
 
   const invoice = (parsed.invoice&&isValidInvoice(parsed.invoice)) ? parsed.invoice : '';
   const items = parsed.items||'';
-  const biko = buildBiko(d||dateForC, items, invoice);
+  const store = parsed.store||'';
+  // ★ 備考：日付 取引先名 内容 登録番号
+  const biko = buildBiko(d||dateForC, store, items, invoice);
   const taxcat = calcTaxCategory(dateForC.replace(/\//g,'-'), invoice, items);
 
-  return {date:dateForC,store:parsed.store||'',kamoku:guessKamoku(items,parsed.amount),amount:parsed.amount||'',biko,invoice,taxcat,confidence:parsed.confidence||'medium',previewDataUrl,pdfDataUrl,isPdf};
+  return {date:dateForC, receiptDate:d||dateForC, store, kamoku:guessKamoku(items,parsed.amount), amount:parsed.amount||'', items, biko, invoice, taxcat, confidence:parsed.confidence||'medium', previewDataUrl, pdfDataUrl, isPdf};
 }
 
 function normalizeDate(str) {
@@ -558,6 +572,8 @@ function fileToBase64(file) {
 }
 
 function fillForm(result) {
+  // ★ bikoDataに生データを保持
+  bikoData.f = { date: result.receiptDate, store: result.store, items: result.items, invoice: result.invoice };
   document.getElementById('f-date').value=result.date.replace(/\//g,'-');
   document.getElementById('f-store').value=result.store;
   document.getElementById('f-amount').value=result.amount;
@@ -578,15 +594,21 @@ function fillForm(result) {
 function addToList() {
   const raw=document.getElementById('f-date').value;
   const invoice=(document.getElementById('f-invoice').value||'').trim();
-  const bikoRaw=document.getElementById('f-biko').value;
-  const biko=isValidInvoice(invoice)&&!bikoRaw.includes(invoice)?(bikoRaw+' '+invoice).trim():bikoRaw;
+  const biko=document.getElementById('f-biko').value;
   const taxcat=document.getElementById('f-taxcat').value;
-  records.push({id:genId(),date:raw.replace(/-/g,'/'),store:document.getElementById('f-store').value,kamoku:getKamoku('f'),amount:document.getElementById('f-amount').value,biko,invoice,taxcat,previewDataUrl:null,pdfDataUrl:null,isPdf:false});
+  records.push({
+    id:genId(), date:raw.replace(/-/g,'/'), store:document.getElementById('f-store').value,
+    kamoku:getKamoku('f'), amount:document.getElementById('f-amount').value,
+    biko, invoice, taxcat,
+    receiptDate: bikoData.f.date, items: bikoData.f.items,
+    previewDataUrl:null, pdfDataUrl:null, isPdf:false
+  });
   document.getElementById('count').textContent=records.length;
   resetScan(); switchTab('list');
 }
 
 function resetScan() {
+  bikoData.f = { date:'', store:'', items:'', invoice:'' };
   document.getElementById('f-date').value='';
   document.getElementById('f-invoice').value='';
   ['f-amount','f-store','f-biko'].forEach(id=>document.getElementById(id).value='');
@@ -615,6 +637,8 @@ function openReview(id) {
   if (!r) return;
   const idx=records.indexOf(r);
   document.getElementById('reviewIndex').textContent=(idx+1)+' / '+records.length;
+  // ★ bikoDataにレコードの生データをセット
+  bikoData.r = { date: r.receiptDate||r.date, store: r.store, items: r.items||'', invoice: r.invoice||'' };
   document.getElementById('r-date').value=r.date.replace(/\//g,'-');
   document.getElementById('r-store').value=r.store;
   document.getElementById('r-amount').value=r.amount;
@@ -646,9 +670,10 @@ function saveReview() {
   r.kamoku=getKamoku('r');
   r.amount=document.getElementById('r-amount').value;
   r.invoice=(document.getElementById('r-invoice').value||'').trim();
-  const bikoRaw=document.getElementById('r-biko').value;
-  r.biko=isValidInvoice(r.invoice)&&!bikoRaw.includes(r.invoice)?(bikoRaw+' '+r.invoice).trim():bikoRaw;
+  r.biko=document.getElementById('r-biko').value;
   r.taxcat=document.getElementById('r-taxcat').value;
+  r.receiptDate=bikoData.r.date;
+  r.items=bikoData.r.items;
   const idx=records.indexOf(r);
   if(idx<records.length-1){openReview(records[idx+1].id);}
   else{closeReview();const d=document.getElementById('doneBox');d.textContent='✅ 全件の確認が完了しました！';d.style.display='';}
@@ -699,7 +724,7 @@ function exportExcel() {
   const ws = XLSX.utils.aoa_to_sheet([headers,...rows]);
   ws['!cols'] = [
     {wch:8},{wch:8},{wch:12},{wch:12},{wch:20},{wch:12},
-    {wch:12},{wch:22},{wch:10},{wch:10},{wch:10},{wch:35},
+    {wch:12},{wch:22},{wch:10},{wch:10},{wch:10},{wch:40},
     {wch:12},{wch:12},{wch:25},{wch:12},{wch:12},{wch:10},
     {wch:5},{wch:18}
   ];
